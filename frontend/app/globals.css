@@ -1,0 +1,96 @@
+/* Display: Sora · Body: Inter · Data/mono: IBM Plex Mono */
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Brand — derived from the Eleven Solutions logo gradient */
+  --plum-900:  #2E1A40;   /* deepest, hero base */
+  --plum-800:  #3A2150;
+  --plum-700:  #503070;   /* gradient start */
+  --plum-600:  #6A3E8E;
+  --orchid-500:#B060A0;   /* gradient end / primary accent */
+  --orchid-400:#C176B4;
+  --orchid-300:#D7A8CE;   /* soft accent, dark-bg text */
+
+  --ink:       #1A1420;   /* body text on light */
+  --mist:      #6B6175;   /* muted text */
+  --line:      #ECE7EF;   /* hairlines on light */
+  --paper:     #FBFAFC;   /* light body background */
+
+  /* Portal tokens (unchanged) so the admin keeps working */
+  --navy:        #0F1E2E;
+  --navy-light:  #162840;
+  --orange:      #E8620A;
+  --orange-light:#F7813B;
+  --muted:       #8FA3B8;
+
+  --grad: linear-gradient(120deg, var(--plum-700) 0%, var(--orchid-500) 100%);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', system-ui, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: var(--ink);
+}
+
+/* Typography helpers for the public site */
+.font-display { font-family: 'Sora', system-ui, sans-serif; }
+.font-mono    { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+
+.text-grad {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.bg-grad { background: var(--grad); }
+
+/* Eyebrow label used across sections */
+.eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--orchid-500);
+}
+
+/* Hero route-draw animation */
+@keyframes drawRoute { to { stroke-dashoffset: 0; } }
+@keyframes pulseDot  { 0%,100% { opacity: 0.4; transform: scale(0.85);} 50% { opacity: 1; transform: scale(1.15);} }
+@keyframes floatIn   { from { opacity: 0; transform: translateY(16px);} to { opacity: 1; transform: translateY(0);} }
+
+.route-path {
+  stroke-dasharray: 1400;
+  stroke-dashoffset: 1400;
+  animation: drawRoute 2.6s cubic-bezier(.6,.05,.2,1) forwards;
+}
+.route-dot { animation: pulseDot 2.2s ease-in-out infinite; }
+.float-in  { animation: floatIn .7s ease-out both; }
+.float-in-1 { animation-delay: .05s; }
+.float-in-2 { animation-delay: .15s; }
+.float-in-3 { animation-delay: .25s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .route-path { animation: none; stroke-dashoffset: 0; }
+  .route-dot, .float-in { animation: none; }
+}
+
+/* Scrollbar (admin portal) */
+::-webkit-scrollbar        { width: 6px; height: 6px; }
+::-webkit-scrollbar-track  { background: #1a2f44; }
+::-webkit-scrollbar-thumb  { background: #3a5068; border-radius: 3px; }
+
+/* Focus ring: orange in portal, plum on the public site */
+input:focus, select:focus, textarea:focus, button:focus {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+.site input:focus, .site select:focus, .site textarea:focus, .site button:focus {
+  outline: 2px solid var(--orchid-500);
+  outline-offset: 2px;
+}

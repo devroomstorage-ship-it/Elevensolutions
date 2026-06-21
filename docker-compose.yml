@@ -1,0 +1,84 @@
+version: '3.9'
+
+services:
+
+  # ─── PostgreSQL database ──────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: eleven_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       eleven_solutions
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/src/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./backend/src/db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── Backend API ──────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: eleven_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV:              development
+      PORT:                  4000
+      DATABASE_URL:          postgresql://postgres:postgres@postgres:5432/eleven_solutions
+      JWT_SECRET:            dev_jwt_secret_change_in_production
+      JWT_REFRESH_SECRET:    dev_refresh_secret_change_in_production
+      JWT_EXPIRES_IN:        15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      REQUIRE_2FA:           "false"
+      CORS_ORIGINS:          http://localhost:3000
+      PUBLIC_SITE_URL:       http://localhost:3000
+      PORTAL_URL:            http://localhost:3000/portal
+      SENDGRID_API_KEY:      ${SENDGRID_API_KEY:-REPLACE_ME}
+      EMAIL_FROM:            noreply@elevensolutions.co.ke
+      EMAIL_FROM_NAME:       Eleven Solutions Limited
+      QB_CLIENT_ID:          ${QB_CLIENT_ID:-}
+      QB_CLIENT_SECRET:      ${QB_CLIENT_SECRET:-}
+      QB_REDIRECT_URI:       http://localhost:4000/api/quickbooks/callback
+      QB_SANDBOX:            "true"
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  # ─── Frontend ─────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: eleven_web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL:        http://localhost:4000/api
+      NEXT_PUBLIC_SITE_URL:       http://localhost:3000
+      NEXT_PUBLIC_COMPANY_NAME:   Eleven Solutions Limited
+      NEXT_PUBLIC_COMPANY_PHONE:  "+254 700 000 000"
+      NEXT_PUBLIC_COMPANY_EMAIL:  info@elevensolutions.co.ke
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+
+volumes:
+  postgres_data:
