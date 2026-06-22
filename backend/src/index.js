@@ -17,6 +17,7 @@ const qbRoutes          = require('./routes/quickbooks');
 const driversRoutes     = require('./routes/drivers');      // NEW
 const assignmentsRoutes = require('./routes/assignments');  // NEW
 const contentRoutes     = require('./routes/content');      // NEW — CMS + public site content
+const emailSettingsRoutes = require('./routes/emailSettings'); // NEW — sender email config
 const analyticsRoutes   = require('./routes/analytics');    // NEW — BI refresh + summaries
 
 const app = express();
@@ -63,6 +64,7 @@ app.use('/api/quickbooks',  qbRoutes);
 app.use('/api/drivers',     driversRoutes);      // NEW
 app.use('/api/assignments', assignmentsRoutes);  // NEW
 app.use('/api/content',     contentRoutes);      // NEW
+app.use('/api/email-settings', emailSettingsRoutes); // NEW
 app.use('/api/analytics',   analyticsRoutes);    // NEW
 
 // ─── Public quote submission (no auth required) ───────────────────────────────

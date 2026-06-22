@@ -1,4 +1,5 @@
 import './globals.css';
+import { AuthProvider } from '@/lib/auth';
 
 export const metadata = {
   title: 'Eleven Solutions Ltd — Freight & Logistics, Ruiru Kenya',
@@ -23,7 +24,9 @@ export default function RootLayout({ children }) {
           rel="stylesheet"
         />
       </head>
-      <body className="site">{children}</body>
+      <body className="site">
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

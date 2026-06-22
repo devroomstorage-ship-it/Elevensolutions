@@ -35,6 +35,20 @@ async function alreadyApplied(client, filename) {
   return rows.length > 0;
 }
 
+async function markApplied(client, filename) {
+  await client.query(
+    'INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING',
+    [filename]
+  );
+}
+
+async function tableExists(client, tableName) {
+  const { rows } = await client.query('SELECT to_regclass($1) AS table_name', [
+    `public.${tableName}`,
+  ]);
+  return Boolean(rows[0]?.table_name);
+}
+
 async function run() {
   // schema.sql is the baseline; apply it first (and only once), then all
   // migration_*.sql files in alphabetical order. seed.sql is run manually.
@@ -49,6 +63,18 @@ async function run() {
   try {
     await ensureTable(client);
 
+    // Docker Compose can initialize a fresh database with schema.sql + seed.sql
+    // before the backend starts. In that case schema_migrations is empty even
+    // though the baseline tables already exist. Mark schema.sql as applied so
+    // the runner can safely apply only the additive migration_*.sql files.
+    if (files.includes('schema.sql') && !(await alreadyApplied(client, 'schema.sql'))) {
+      const baselineAlreadyPresent = await tableExists(client, 'users');
+      if (baselineAlreadyPresent) {
+        await markApplied(client, 'schema.sql');
+        console.log('✓ baseline detected  schema.sql');
+      }
+    }
+
     for (const file of files) {
       if (await alreadyApplied(client, file)) {
         console.log(`✓ already applied   ${file}`);
@@ -60,10 +86,7 @@ async function run() {
       // contain BEGIN/COMMIT or standalone statements), so we run the whole
       // file as a single multi-statement query.
       await client.query(sql);
-      await client.query(
-        'INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING',
-        [file]
-      );
+      await markApplied(client, file);
       console.log(`✓ applied           ${file}`);
     }
 

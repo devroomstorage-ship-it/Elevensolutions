@@ -1,8 +1,3 @@
-// Shared phone normaliser/validator. Mirrors frontend/lib/constants.js so
-// what the user types and what we store match exactly. Accepts:
-//   0717900400, 254717900400, +254717900400, 717900400
-// Returns canonical +2547XXXXXXXX (or +2541XXXXXXXX) — or null if invalid.
-
 function normalizeKenyanPhone(raw) {
   if (!raw) return null;
   let s = String(raw).replace(/[\s\-()]/g, '');
@@ -13,8 +8,24 @@ function normalizeKenyanPhone(raw) {
   return '+254' + s;
 }
 
+function normalizeInternationalPhone(raw) {
+  if (!raw) return null;
+  const compact = String(raw).replace(/[\s\-()]/g, '');
+  if (!/^\+[1-9]\d{7,14}$/.test(compact)) return null;
+  return compact;
+}
+
 function isKenyanPhone(raw) {
   return normalizeKenyanPhone(raw) !== null;
 }
 
-module.exports = { normalizeKenyanPhone, isKenyanPhone };
+function isInternationalPhone(raw) {
+  return normalizeInternationalPhone(raw) !== null;
+}
+
+module.exports = {
+  normalizeKenyanPhone,
+  normalizeInternationalPhone,
+  isKenyanPhone,
+  isInternationalPhone,
+};

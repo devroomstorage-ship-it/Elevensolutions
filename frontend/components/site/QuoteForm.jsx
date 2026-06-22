@@ -1,24 +1,62 @@
 'use client';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { CARGO_TYPES, EAST_AFRICA_PICKUP_POINTS } from '@/lib/quoteOptions';
+import { normalizeDisplayPhone, telHref } from '@/lib/phone';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
+function tomorrowISODate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString().slice(0, 10);
+}
+
 export default function QuoteForm({ settings }) {
+  const minPickupDate = useMemo(() => tomorrowISODate(), []);
   const [form, setForm] = useState({
-    companyName: '', contactEmail: '', origin: '', destination: '',
-    cargoType: '', weightTons: '', notes: '',
+    companyName: '',
+    contactEmail: '',
+    contactPhone: '+254',
+    pickupDate: minPickupDate,
+    origin: '',
+    destination: '',
+    cargoType: '',
+    weightTons: '',
+    notes: '',
   });
   const [state, setState] = useState({ status: 'idle', message: '', reference: '' });
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
+  const phones = [settings?.phone_1, settings?.phone_2, settings?.phone_3]
+    .filter(Boolean)
+    .map((p) => normalizeDisplayPhone(p));
+
   const submit = async (e) => {
     e.preventDefault();
     setState({ status: 'sending', message: '', reference: '' });
+
+    const weight = form.weightTons === '' ? undefined : Number(form.weightTons);
+    if (weight !== undefined && weight < 0) {
+      setState({ status: 'error', message: 'Weight cannot be negative.', reference: '' });
+      return;
+    }
+
+    if (!/^\+[1-9]\d{7,14}$/.test(form.contactPhone.replace(/[\s\-()]/g, ''))) {
+      setState({ status: 'error', message: 'Enter a phone number with country code, e.g. +254717900400.', reference: '' });
+      return;
+    }
+
+    if (!form.pickupDate || form.pickupDate < minPickupDate) {
+      setState({ status: 'error', message: 'Pickup date must be after today.', reference: '' });
+      return;
+    }
+
     try {
       const res = await fetch(`${BASE}/public/quote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, weightTons: form.weightTons || undefined }),
+        body: JSON.stringify({ ...form, weightTons: weight }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Something went wrong');
@@ -40,11 +78,11 @@ export default function QuoteForm({ settings }) {
             Request a quotation
           </h2>
           <p className="mt-4 text-white/65 text-[16px] leading-relaxed">
-            Send the route and cargo details — we reply with a fixed quote within two business hours. Prefer to talk?
+            Send the route, pickup date, contact number and cargo details — we reply with a fixed quote within two business hours. Prefer to talk?
           </p>
           <div className="mt-6 space-y-2 font-mono text-[14px] text-[var(--orchid-300)]">
-            {[settings?.phone_1, settings?.phone_2, settings?.phone_3].filter(Boolean).map((p) => (
-              <a key={p} href={`tel:${p}`} className="block hover:text-white transition-colors">{p}</a>
+            {phones.map((p) => (
+              <a key={p} href={telHref(p)} className="block hover:text-white transition-colors">{p}</a>
             ))}
           </div>
         </div>
@@ -67,10 +105,44 @@ export default function QuoteForm({ settings }) {
             <form onSubmit={submit} className="grid sm:grid-cols-2 gap-4">
               <Field label="Company name" value={form.companyName} onChange={set('companyName')} required />
               <Field label="Email" type="email" value={form.contactEmail} onChange={set('contactEmail')} required />
-              <Field label="Pickup (origin)" value={form.origin} onChange={set('origin')} required />
-              <Field label="Drop-off (destination)" value={form.destination} onChange={set('destination')} required />
-              <Field label="Cargo type" value={form.cargoType} onChange={set('cargoType')} />
-              <Field label="Weight (tonnes)" type="number" value={form.weightTons} onChange={set('weightTons')} />
+              <Field
+                label="Phone number with country code"
+                type="tel"
+                value={form.contactPhone}
+                onChange={set('contactPhone')}
+                placeholder="+254717900400"
+                pattern="^\+[1-9][0-9]{7,14}$"
+                required
+              />
+              <Field
+                label="Pickup date"
+                type="date"
+                value={form.pickupDate}
+                onChange={set('pickupDate')}
+                min={minPickupDate}
+                required
+              />
+              <SelectField label="Pickup point" value={form.origin} onChange={set('origin')} required>
+                <option value="">Select pickup point</option>
+                {EAST_AFRICA_PICKUP_POINTS.map((point) => (
+                  <option key={point} value={point}>{point}</option>
+                ))}
+              </SelectField>
+              <Field label="Drop-off / destination" value={form.destination} onChange={set('destination')} required />
+              <SelectField label="Cargo type" value={form.cargoType} onChange={set('cargoType')} required>
+                <option value="">Select cargo type</option>
+                {CARGO_TYPES.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </SelectField>
+              <Field
+                label="Weight (tonnes)"
+                type="number"
+                value={form.weightTons}
+                onChange={set('weightTons')}
+                min="0"
+                step="0.01"
+              />
               <div className="sm:col-span-2">
                 <label className="block text-[13px] font-medium text-[var(--ink)] mb-1.5">Notes</label>
                 <textarea value={form.notes} onChange={set('notes')} rows={3}
@@ -91,14 +163,41 @@ export default function QuoteForm({ settings }) {
   );
 }
 
-function Field({ label, value, onChange, type = 'text', required }) {
+function Field({ label, value, onChange, type = 'text', required, placeholder, min, step, pattern }) {
   return (
     <div>
       <label className="block text-[13px] font-medium text-[var(--ink)] mb-1.5">
         {label}{required && <span className="text-[var(--orchid-500)]"> *</span>}
       </label>
-      <input type={type} value={value} onChange={onChange} required={required}
-        className="w-full text-sm border border-[var(--line)] rounded-lg px-3 py-2.5" />
+      <input
+        type={type}
+        value={value}
+        onChange={onChange}
+        required={required}
+        placeholder={placeholder}
+        min={min}
+        step={step}
+        pattern={pattern}
+        className="w-full text-sm border border-[var(--line)] rounded-lg px-3 py-2.5"
+      />
+    </div>
+  );
+}
+
+function SelectField({ label, value, onChange, required, children }) {
+  return (
+    <div>
+      <label className="block text-[13px] font-medium text-[var(--ink)] mb-1.5">
+        {label}{required && <span className="text-[var(--orchid-500)]"> *</span>}
+      </label>
+      <select
+        value={value}
+        onChange={onChange}
+        required={required}
+        className="w-full text-sm border border-[var(--line)] rounded-lg px-3 py-2.5 bg-white"
+      >
+        {children}
+      </select>
     </div>
   );
 }

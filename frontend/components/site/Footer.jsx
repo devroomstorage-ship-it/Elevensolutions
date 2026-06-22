@@ -1,8 +1,9 @@
 'use client';
 import Link from 'next/link';
+import { normalizeDisplayPhone, telHref } from '@/lib/phone';
 
 export default function Footer({ settings = {} }) {
-  const phones = [settings.phone_1, settings.phone_2, settings.phone_3].filter(Boolean);
+  const phones = [settings.phone_1, settings.phone_2, settings.phone_3].filter(Boolean).map(normalizeDisplayPhone);
   const year = new Date().getFullYear();
 
   return (
@@ -44,7 +45,7 @@ export default function Footer({ settings = {} }) {
             <p>{settings.address_line || 'Ruiru, Kenya'}</p>
             <div className="font-mono text-[13px] space-y-1 pt-1">
               {phones.map((p) => (
-                <a key={p} href={`tel:${p}`} className="block hover:text-white transition-colors">{p}</a>
+                <a key={p} href={telHref(p)} className="block hover:text-white transition-colors">{p}</a>
               ))}
             </div>
             <div className="pt-1 space-y-1">

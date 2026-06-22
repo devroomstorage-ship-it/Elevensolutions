@@ -16,6 +16,12 @@ npm-debug.log*
 .env.test.local
 .env.production.local
 
+
+# Keep safe templates committed
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
 # Next.js build output
 .next/
 out/
