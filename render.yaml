@@ -13,8 +13,7 @@ services:
     region: frankfurt
     plan: free
     buildCommand: npm install
-    preDeployCommand: npm run migrate
-    startCommand: npm start
+    startCommand: npm run migrate && npm run seed && npm start
     healthCheckPath: /health
     autoDeploy: true
     envVars:
