@@ -66,8 +66,8 @@ services:
     rootDir: frontend
     region: frankfurt
     plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm run migrate && node reset-password.js admin@elevensolutions.co.ke "Admin@1234" && npm start
+    buildCommand: npm install
+    startCommand: npm run migrate && npm start
     healthCheckPath: /
     autoDeploy: true
     envVars:
