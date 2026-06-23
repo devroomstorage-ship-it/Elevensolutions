@@ -13,7 +13,7 @@ services:
     region: frankfurt
     plan: free
     buildCommand: npm install
-    startCommand: npm run migrate && npm run seed && npm start
+    startCommand: npm run migrate && npm start
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -66,8 +66,8 @@ services:
     rootDir: frontend
     region: frankfurt
     plan: free
-    buildCommand: npm install
-    startCommand: npm run migrate && npm start
+    buildCommand: npm install && npm run build
+    startCommand: npm start
     healthCheckPath: /
     autoDeploy: true
     envVars:
