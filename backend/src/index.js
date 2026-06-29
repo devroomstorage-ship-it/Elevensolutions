@@ -1,5 +1,13 @@
 require('dotenv').config();
 require('dns').setDefaultResultOrder('ipv4first');
+// Also force IPv4 only for outbound sockets — Render doesn't route IPv6.
+const dns = require('dns');
+const _origLookup = dns.lookup;
+dns.lookup = (hostname, options, callback) => {
+  if (typeof options === 'function') { callback = options; options = {}; }
+  if (typeof options === 'number')   { options = { family: options }; }
+  return _origLookup.call(dns, hostname, { ...options, family: 4 }, callback);
+};
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
