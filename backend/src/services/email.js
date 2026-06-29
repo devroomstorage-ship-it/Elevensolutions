@@ -1,9 +1,6 @@
-// Email sender — uses nodemailer (SMTP), with both the FROM addresses AND the
-// SMTP server credentials read from site_settings at send-time. Switching from
-// Gmail to Safaricom SMTP later is a config change in the portal, no code.
-//
-// Why not SendGrid: account access is unreliable for new African signups.
-// Gmail + App Password works reliably for up to 500 sends/day.
+// Email sender — supports two transports:
+// 1) SMTP/Nodemailer for local testing, e.g. Gmail App Password on your laptop.
+// 2) Mailtrap Email API for Render production, avoiding blocked SMTP ports.
 
 const nodemailer = require('nodemailer');
 const dns = require('dns');
@@ -40,6 +37,8 @@ async function getEmailSettings() {
     );
     const m = Object.fromEntries(rows.map(r => [r.key, r.value || '']));
     _cache = {
+      transport: (process.env.EMAIL_TRANSPORT || (process.env.MAILTRAP_API_KEY || process.env.MAILTRAP_API_TOKEN ? 'mailtrap' : 'smtp')).trim().toLowerCase(),
+      mailtrapApiKey: (process.env.MAILTRAP_API_KEY || process.env.MAILTRAP_API_TOKEN || '').trim(),
       defaultAddress: (m.email_from_address || process.env.EMAIL_FROM || '').trim(),
       defaultName:    (m.email_from_name    || process.env.EMAIL_FROM_NAME || 'Eleven Solutions').trim(),
       replyTo:        (m.email_reply_to || '').trim(),
@@ -60,6 +59,8 @@ async function getEmailSettings() {
   } catch (err) {
     // DB unavailable — fall back to env vars so emails still work in dev
     return {
+      transport: (process.env.EMAIL_TRANSPORT || (process.env.MAILTRAP_API_KEY || process.env.MAILTRAP_API_TOKEN ? 'mailtrap' : 'smtp')).trim().toLowerCase(),
+      mailtrapApiKey: (process.env.MAILTRAP_API_KEY || process.env.MAILTRAP_API_TOKEN || '').trim(),
       defaultAddress: (process.env.EMAIL_FROM || '').trim(),
       defaultName:    (process.env.EMAIL_FROM_NAME || 'Eleven Solutions').trim(),
       replyTo: '',
@@ -102,6 +103,106 @@ async function getTransporter() {
   return _transporter;
 }
 
+
+// ─── Generic email send wrapper ───────────────────────────────────────────────
+function parseEmailAddress(value) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^"?([^"<]*)"?\s*<([^>]+)>$/);
+  if (match) {
+    return {
+      email: match[2].trim(),
+      name: match[1].trim() || undefined,
+    };
+  }
+  return { email: raw };
+}
+
+function toAddressList(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.flatMap(toAddressList);
+  return String(value)
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean)
+    .map(parseEmailAddress);
+}
+
+function guessMimeType(filename = '') {
+  const lower = filename.toLowerCase();
+  if (lower.endsWith('.pdf')) return 'application/pdf';
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.csv')) return 'text/csv';
+  return 'application/octet-stream';
+}
+
+async function sendViaMailtrap(mail) {
+  const s = await getEmailSettings();
+  if (!s.mailtrapApiKey) {
+    throw new Error('Mailtrap API key not configured. Set MAILTRAP_API_KEY in Render environment variables.');
+  }
+
+  const payload = {
+    from: parseEmailAddress(mail.from),
+    to: toAddressList(mail.to),
+    subject: mail.subject,
+  };
+
+  if (mail.replyTo) payload.reply_to = parseEmailAddress(mail.replyTo);
+  if (mail.text) payload.text = mail.text;
+  if (mail.html) payload.html = mail.html;
+
+  if (mail.attachments?.length) {
+    payload.attachments = mail.attachments.map((a) => ({
+      filename: a.filename,
+      content: Buffer.isBuffer(a.content) ? a.content.toString('base64') : Buffer.from(String(a.content || '')).toString('base64'),
+      type: a.contentType || guessMimeType(a.filename),
+      disposition: 'attachment',
+    }));
+  }
+
+  const response = await fetch('https://send.api.mailtrap.io/api/send', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${s.mailtrapApiKey}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'eleven-solutions-backend/1.0',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const bodyText = await response.text();
+  let body;
+  try { body = bodyText ? JSON.parse(bodyText) : {}; } catch { body = { raw: bodyText }; }
+
+  if (!response.ok || body?.success === false) {
+    const errors = Array.isArray(body?.errors) ? body.errors.join('; ') : (body?.error || bodyText || response.statusText);
+    throw new Error(`Mailtrap send failed (${response.status}): ${errors}`);
+  }
+
+  return body;
+}
+
+async function sendEmail(mail) {
+  const s = await getEmailSettings();
+  if (s.transport === 'mailtrap' || s.transport === 'mailtrap_api') {
+    return sendViaMailtrap(mail);
+  }
+  const t = await getTransporter();
+  return t.sendMail(mail);
+}
+
+async function verifyEmailService() {
+  const s = await getEmailSettings();
+  if (s.transport === 'mailtrap' || s.transport === 'mailtrap_api') {
+    if (!s.mailtrapApiKey) throw new Error('Mailtrap API key not configured. Set MAILTRAP_API_KEY in Render environment variables.');
+    return true;
+  }
+  const t = await getTransporter();
+  await t.verify();
+  return true;
+}
+
 async function resolveFrom(purpose) {
   const s = await getEmailSettings();
   const override = s.perPurpose[purpose] || '';
@@ -126,9 +227,8 @@ const footerLine = `${COMPANY.name} · ${COMPANY.address} · ${COMPANY.phones.jo
 
 // ─── Send: formal PDF quotation ───────────────────────────────────────────────
 async function sendQuoteEmail(to, companyName, quote, pdfBuffer) {
-  const t = await getTransporter();
   const { from, replyTo } = await resolveFrom('quotes');
-  await t.sendMail({
+  await sendEmail({
     to, from, replyTo,
     subject: `Quotation ${quote.reference} — ${COMPANY.name}`,
     html: `
@@ -160,11 +260,10 @@ async function sendQuoteEmail(to, companyName, quote, pdfBuffer) {
 
 // ─── Send: acknowledgement (instant on form submit) ───────────────────────────
 async function sendQuoteAcknowledgement(to, companyName, reference) {
-  // If SMTP isn't configured, silently skip — don't break the public form.
-  try { await getTransporter(); } catch { return; }
-  const t = await getTransporter();
+  // If email is not configured, silently skip — don't break the public form.
+  try { await verifyEmailService(); } catch { return; }
   const { from, replyTo } = await resolveFrom('ack');
-  await t.sendMail({
+  await sendEmail({
     to, from, replyTo,
     subject: `We received your request [${reference}] — ${COMPANY.name}`,
     html: `
@@ -185,9 +284,8 @@ async function sendQuoteAcknowledgement(to, companyName, reference) {
 
 // ─── Send: invoice PDF ────────────────────────────────────────────────────────
 async function sendInvoiceEmail(to, companyName, invoice, pdfBuffer) {
-  const t = await getTransporter();
   const { from, replyTo } = await resolveFrom('invoices');
-  await t.sendMail({
+  await sendEmail({
     to, from, replyTo,
     subject: `Invoice ${invoice.reference} — ${COMPANY.name}`,
     html: `
@@ -217,9 +315,8 @@ async function sendInvoiceEmail(to, companyName, invoice, pdfBuffer) {
 
 // ─── Test send (used by the settings page "Send test" button) ─────────────────
 async function sendTestEmail(to, purpose = 'quotes') {
-  const t = await getTransporter();
   const { from, replyTo } = await resolveFrom(purpose);
-  await t.sendMail({
+  await sendEmail({
     to, from, replyTo,
     subject: `Test email from ${COMPANY.name}`,
     text: `This is a test email sent from ${from} for purpose "${purpose}". If you received this, your email settings are working.`,
@@ -229,9 +326,7 @@ async function sendTestEmail(to, purpose = 'quotes') {
 
 // ─── Verify SMTP credentials without sending anything ─────────────────────────
 async function verifySmtp() {
-  const t = await getTransporter();
-  await t.verify();
-  return true;
+  return verifyEmailService();
 }
 
 module.exports = {

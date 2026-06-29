@@ -43,8 +43,10 @@ services:
         value: https://eleven-solutions-frontend.onrender.com
       - key: PORTAL_URL
         value: https://eleven-solutions-frontend.onrender.com/portal
-      #- key: SENDGRID_API_KEY
-      #  sync: false
+      - key: EMAIL_TRANSPORT
+        value: mailtrap
+      - key: MAILTRAP_API_KEY
+        sync: false
       - key: EMAIL_FROM
         value: info@elevensolutions.co.ke
       - key: EMAIL_FROM_NAME
