@@ -6,7 +6,18 @@
 // Gmail + App Password works reliably for up to 500 sends/day.
 
 const nodemailer = require('nodemailer');
+const dns = require('dns');
 const { query } = require('../db');
+
+// Force IPv4 when resolving SMTP hostnames. Render's network (and many other
+// cloud hosts) doesn't route IPv6 outbound on default tiers — without this,
+// Node's DNS resolver may return Google's IPv6 address first and we get
+// ENETUNREACH on connect. family:4 makes the resolver only return IPv4.
+const ipv4Lookup = (hostname, options, callback) => {
+  // Handle both callback signatures dns.lookup uses.
+  if (typeof options === 'function') { callback = options; options = {}; }
+  return dns.lookup(hostname, { ...options, family: 4 }, callback);
+};
 
 // ─── Settings cache (30s) ─────────────────────────────────────────────────────
 let _cache = null;
@@ -79,6 +90,13 @@ async function getTransporter() {
     port: s.smtp.port,
     secure: s.smtp.port === 465,  // 465 = SSL, 587 = STARTTLS
     auth: { user: s.smtp.user, pass: s.smtp.pass },
+    // Force IPv4 — see ipv4Lookup definition above for why.
+    // Both options needed: connection itself + TLS upgrade for port 587.
+    dnsTimeout: 10000,
+    connectionTimeout: 15000,
+    socketTimeout: 30000,
+    tls: { servername: s.smtp.host },
+    lookup: ipv4Lookup,
   });
   _transporterKey = key;
   return _transporter;
