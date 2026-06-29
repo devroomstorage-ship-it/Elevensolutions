@@ -84,13 +84,18 @@ router.post('/quote', formLimiter, [
       `INSERT INTO quotations
          (reference, client_id, company_name, contact_email, contact_phone,
           requested_pickup_date, origin, destination, cargo_type, weight_tons, notes, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending') RETURNING id, reference`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending') RETURNING id, reference, company_name, contact_email, contact_phone, requested_pickup_date, origin, destination, cargo_type, weight_tons, notes`,
       [refRow[0].ref, clientId, companyName, contactEmail, contactPhone,
        pickupDate, origin, destination, cargoType, weightTons || null, notes]
     );
 
-    const { sendQuoteAcknowledgement } = require('../services/email');
-    sendQuoteAcknowledgement(contactEmail, companyName, rows[0].reference).catch(console.error);
+    const { sendQuoteAcknowledgement, sendQuoteAdminNotification } = require('../services/email');
+    sendQuoteAcknowledgement(contactEmail, companyName, rows[0].reference).catch((err) => {
+      console.error('Quote acknowledgement email error:', err.message || err);
+    });
+    sendQuoteAdminNotification(rows[0]).catch((err) => {
+      console.error('Admin quote notification email error:', err.message || err);
+    });
 
     res.status(201).json({
       message: 'Your quote request has been received. We will email you a quotation within 2 business hours.',

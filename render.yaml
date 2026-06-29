@@ -51,6 +51,8 @@ services:
         value: info@elevensolutions.co.ke
       - key: EMAIL_FROM_NAME
         value: Eleven Solutions Limited
+      - key: ADMIN_QUOTE_EMAIL
+        value: elevensolutionltd@gmail.com
       - key: GOOGLE_MAPS_SERVER_KEY
         sync: false
       - key: QB_CLIENT_ID

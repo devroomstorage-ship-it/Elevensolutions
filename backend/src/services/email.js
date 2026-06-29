@@ -282,6 +282,74 @@ async function sendQuoteAcknowledgement(to, companyName, reference) {
   });
 }
 
+
+
+// ─── Send: admin notification (instant on public quote submit) ────────────────
+async function sendQuoteAdminNotification(quote) {
+  const adminEmail = (process.env.ADMIN_QUOTE_EMAIL || process.env.EMAIL_REPLY_TO || '').trim();
+  if (!adminEmail) {
+    console.warn('Admin quote notification skipped: ADMIN_QUOTE_EMAIL is not configured.');
+    return;
+  }
+
+  // If email is not configured, log the error but do not break the public form.
+  try {
+    await verifyEmailService();
+  } catch (err) {
+    console.error('Admin quote notification skipped:', err.message || err);
+    return;
+  }
+
+  const { from, replyTo } = await resolveFrom('ack');
+  const customerEmail = quote.contact_email || quote.contactEmail || '';
+  const customerPhone = quote.contact_phone || quote.contactPhone || '';
+  const companyName = quote.company_name || quote.companyName || 'Customer';
+  const reference = quote.reference || 'New quote request';
+
+  await sendEmail({
+    to: adminEmail,
+    from,
+    replyTo: customerEmail || replyTo,
+    subject: `New quote request ${reference} — ${companyName}`,
+    text: [
+      `New quote request received: ${reference}`,
+      `Company: ${companyName}`,
+      `Email: ${customerEmail}`,
+      `Phone: ${customerPhone}`,
+      `Pickup date: ${quote.requested_pickup_date || quote.pickupDate || '—'}`,
+      `Route: ${quote.origin || '—'} to ${quote.destination || '—'}`,
+      `Cargo: ${quote.cargo_type || quote.cargoType || '—'}`,
+      `Weight: ${quote.weight_tons || quote.weightTons || '—'} tons`,
+      `Notes: ${quote.notes || '—'}`,
+    ].join('\n'),
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;">
+        <div style="background:#0F1E2E;padding:24px;border-radius:8px 8px 0 0;">
+          <h2 style="color:#fff;margin:0;font-size:20px;">New quote request received</h2>
+          <p style="color:#8fa3b8;margin:6px 0 0;font-size:13px;">${COMPANY.name}</p>
+        </div>
+        <div style="background:#fff;padding:28px;border:1px solid #e5e7eb;">
+          <p style="color:#444;margin-top:0;">A customer has successfully submitted a quote request from the website.</p>
+          <table style="width:100%;border-collapse:collapse;margin:20px 0;">
+            <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;width:160px;">Reference</td><td style="padding:8px 12px;font-size:13px;color:#333;font-weight:bold;">${reference}</td></tr>
+            <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Company</td><td style="padding:8px 12px;font-size:13px;color:#333;">${companyName}</td></tr>
+            <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Email</td><td style="padding:8px 12px;font-size:13px;color:#333;">${customerEmail || '—'}</td></tr>
+            <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Phone</td><td style="padding:8px 12px;font-size:13px;color:#333;">${customerPhone || '—'}</td></tr>
+            <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Pickup date</td><td style="padding:8px 12px;font-size:13px;color:#333;">${formatDate(quote.requested_pickup_date || quote.pickupDate)}</td></tr>
+            <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Route</td><td style="padding:8px 12px;font-size:13px;color:#333;">${quote.origin || '—'} → ${quote.destination || '—'}</td></tr>
+            <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Cargo</td><td style="padding:8px 12px;font-size:13px;color:#333;">${quote.cargo_type || quote.cargoType || '—'}</td></tr>
+            <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Weight</td><td style="padding:8px 12px;font-size:13px;color:#333;">${quote.weight_tons || quote.weightTons || '—'} tons</td></tr>
+            <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Notes</td><td style="padding:8px 12px;font-size:13px;color:#333;">${quote.notes || '—'}</td></tr>
+          </table>
+          <p style="color:#444;font-size:13px;">Open the portal to review and prepare the quotation.</p>
+        </div>
+        <div style="background:#f4f6f9;padding:16px;border-radius:0 0 8px 8px;text-align:center;">
+          <p style="color:#888;font-size:11px;margin:0;">${footerLine}</p>
+        </div>
+      </div>`,
+  });
+}
+
 // ─── Send: invoice PDF ────────────────────────────────────────────────────────
 async function sendInvoiceEmail(to, companyName, invoice, pdfBuffer) {
   const { from, replyTo } = await resolveFrom('invoices');
@@ -332,6 +400,7 @@ async function verifySmtp() {
 module.exports = {
   sendQuoteEmail,
   sendQuoteAcknowledgement,
+  sendQuoteAdminNotification,
   sendInvoiceEmail,
   sendTestEmail,
   getEmailSettings,
