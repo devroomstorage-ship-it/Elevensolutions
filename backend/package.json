@@ -23,6 +23,7 @@
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
     "node-quickbooks": "^2.0.39",
+    "nodemailer": "^9.0.1",
     "otpauth": "^9.2.2",
     "pdfkit": "^0.19.1",
     "pg": "^8.11.5",
