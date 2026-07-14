@@ -35,6 +35,39 @@ router.get('/stats', financeOrAdmin, async (req, res) => {
   res.json(rows[0]);
 });
 
+// GET /api/invoices/:id
+router.get('/:id', allStaff, async (req, res) => {
+  const { rows } = await query(`
+    SELECT i.*, c.company_name, c.email AS client_email, c.phone AS client_phone
+    FROM invoices i
+    JOIN clients c ON i.client_id = c.id
+    WHERE i.id = $1
+  `, [req.params.id]);
+  if (!rows.length) return res.status(404).json({ error: 'Invoice not found' });
+  res.json(rows[0]);
+});
+
+// GET /api/invoices/:id/pdf — generate and stream the invoice PDF directly (no email)
+router.get('/:id/pdf', allStaff, async (req, res) => {
+  const { rows } = await query(`
+    SELECT i.*, c.company_name, c.email AS client_email, c.phone AS client_phone
+    FROM invoices i
+    JOIN clients c ON i.client_id = c.id
+    WHERE i.id = $1
+  `, [req.params.id]);
+  if (!rows.length) return res.status(404).json({ error: 'Invoice not found' });
+
+  try {
+    const pdfBuffer = await generateInvoicePDF(rows[0]);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${rows[0].reference}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Invoice PDF generation error:', err);
+    res.status(500).json({ error: 'Failed to generate invoice PDF' });
+  }
+});
+
 // POST /api/invoices — create invoice (usually auto-triggered on journey completion)
 router.post('/', financeOrAdmin, async (req, res) => {
   const { clientId, journeyId, amount, taxRate = 0, dueDays = 14, notes } = req.body;

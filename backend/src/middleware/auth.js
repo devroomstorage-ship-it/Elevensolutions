@@ -13,7 +13,7 @@ const authenticate = async (req, res, next) => {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     // Fetch fresh user record to catch deactivated accounts
     const { rows } = await query(
-      'SELECT id, email, full_name, role, is_active FROM users WHERE id = $1',
+      'SELECT id, email, full_name, role, is_active, client_id FROM users WHERE id = $1',
       [payload.sub]
     );
     if (!rows.length || !rows[0].is_active) {
@@ -44,6 +44,7 @@ const financeOrAdmin = requireRole('super_admin', 'finance');
 const plannerOrAbove = requireRole('super_admin', 'fleet_manager', 'planner');
 const fleetOrAbove   = requireRole('super_admin', 'fleet_manager');
 const allStaff       = requireRole('super_admin', 'fleet_manager', 'finance', 'planner', 'driver');
+const clientOnly     = requireRole('client');
 
 // Audit logging helper
 const auditLog = async (userId, action, entityType, entityId, details, ip) => {
@@ -66,5 +67,6 @@ module.exports = {
   plannerOrAbove,
   fleetOrAbove,
   allStaff,
+  clientOnly,
   auditLog,
 };

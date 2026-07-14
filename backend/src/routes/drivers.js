@@ -1,67 +1,85 @@
+// backend/src/routes/drivers.js
+//
+// FULL REPLACEMENT. Adds a proper PATCH endpoint so driver fields (name,
+// email, phone, licence, status, notes, preferred truck, active flag) can
+// all be edited from the portal.
+//
+// The important thing: driver identity lives across TWO tables — `users` for
+// name/email/password/active/phone, `driver_profiles` for licence/status/notes.
+// This route updates both in one transaction so the UI can send a flat body
+// and not think about it.
+
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
 const { query, withTransaction } = require('../db');
-const { authenticate, fleetOrAbove, adminOnly, allStaff, auditLog } = require('../middleware/auth');
+const {
+  authenticate,
+  fleetOrAbove,
+  allStaff,
+  auditLog,
+} = require('../middleware/auth');
+const { normalizeKenyanPhone } = require('../services/phone');
 
 const router = express.Router();
 router.use(authenticate);
 
-// Shared SELECT that joins a driver user to its profile and current truck.
+// Common SELECT — one row per driver joining users + driver_profiles + their
+// currently assigned truck.
 const DRIVER_SELECT = `
-  SELECT u.id, u.full_name, u.email, u.is_active, u.last_login,
-         dp.phone, dp.id_passport_number, dp.license_number, dp.license_expiry,
-         dp.driver_status, dp.preferred_truck_id, dp.emergency_contact, dp.notes,
-         pt.registration AS preferred_truck,
-         ct.registration AS current_truck,
-         ct.id           AS current_truck_id
+  SELECT
+    u.id, u.full_name, u.email, dp.phone, u.is_active,
+    dp.driver_status, dp.id_passport_number, dp.license_number,
+    dp.license_expiry, dp.emergency_contact, dp.notes,
+    dp.preferred_truck_id,
+    t.registration AS current_truck,
+    t.id          AS current_truck_id
   FROM users u
   LEFT JOIN driver_profiles dp ON dp.user_id = u.id
-  LEFT JOIN trucks pt ON dp.preferred_truck_id = pt.id
-  LEFT JOIN trucks ct ON ct.driver_id = u.id
+  LEFT JOIN driver_truck_assignments dta
+      ON dta.driver_id = u.id AND dta.unassigned_at IS NULL
+  LEFT JOIN trucks t ON t.id = dta.truck_id
   WHERE u.role = 'driver'
 `;
 
-// GET /api/drivers — list all drivers with profile + truck info
-router.get('/', allStaff, async (req, res) => {
-  const { rows } = await query(`${DRIVER_SELECT} ORDER BY u.full_name ASC`);
-  res.json(rows);
+// GET /api/drivers
+router.get('/', allStaff, async (_req, res) => {
+  try {
+    const { rows } = await query(`${DRIVER_SELECT} ORDER BY u.full_name ASC`);
+    res.json(rows);
+  } catch (err) {
+    console.error('driver list error:', err);
+    res.status(500).json({ error: 'Could not load drivers.' });
+  }
 });
 
-// GET /api/drivers/:id — single driver with summary stats
+// GET /api/drivers/:id
 router.get('/:id', allStaff, async (req, res) => {
-  const { rows } = await query(`${DRIVER_SELECT} AND u.id = $1`, [req.params.id]);
-  if (!rows.length) return res.status(404).json({ error: 'Driver not found' });
-
-  const { rows: stats } = await query(
-    `SELECT COUNT(*)::int AS total_journeys,
-            COALESCE(SUM(j.distance_km),0) AS total_distance_km,
-            COALESCE(SUM(inv.total_amount),0) AS total_revenue
-       FROM journeys j
-       LEFT JOIN invoices inv ON inv.journey_id = j.id AND inv.status = 'paid'
-      WHERE j.driver_id = $1 AND j.status = 'delivered'`,
-    [req.params.id]
-  );
-
-  res.json({ ...rows[0], stats: stats[0] });
+  try {
+    const { rows } = await query(`${DRIVER_SELECT} AND u.id = $1`, [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Driver not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('driver fetch error:', err);
+    res.status(500).json({ error: 'Could not load driver.' });
+  }
 });
 
-// GET /api/drivers/:id/journeys — full journey history for a driver
+// GET /api/drivers/:id/journeys
 router.get('/:id/journeys', allStaff, async (req, res) => {
   const { rows } = await query(
-    `SELECT j.*, t.registration, t.name AS truck_name, c.company_name AS client_name
+    `SELECT j.*, t.registration
        FROM journeys j
-       LEFT JOIN trucks t ON j.truck_id = t.id
-       LEFT JOIN clients c ON j.client_id = c.id
+       LEFT JOIN trucks t ON t.id = j.truck_id
       WHERE j.driver_id = $1
-      ORDER BY j.scheduled_date DESC, j.created_at DESC
-      LIMIT 200`,
+      ORDER BY j.scheduled_date DESC
+      LIMIT 100`,
     [req.params.id]
   );
   res.json(rows);
 });
 
-// POST /api/drivers — create a driver user + profile in one transaction
+// POST /api/drivers — create user + profile in one go
 router.post('/', fleetOrAbove, [
   body('fullName').trim().notEmpty().withMessage('Full name is required.'),
   body('email').isEmail().withMessage('Enter a valid email address.').normalizeEmail(),
@@ -69,116 +87,144 @@ router.post('/', fleetOrAbove, [
   body('phone').optional({ checkFalsy: true }).isString().isLength({ max: 30 }),
   body('preferredTruckId').optional({ checkFalsy: true }).isUUID().withMessage('Invalid truck reference.'),
   body('licenseExpiry').optional({ checkFalsy: true }).isISO8601().withMessage('Licence expiry must be a date.'),
+  body('driverStatus').optional({ checkFalsy: true }).isIn(['active', 'inactive', 'suspended']).withMessage('Status must be active, inactive or suspended.'),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    // Return a single, human-readable error so the form can show it directly
     const first = errors.array()[0];
     return res.status(400).json({ error: first.msg, field: first.path });
   }
 
   const {
-    fullName, email, password,
-    phone, idPassportNumber, licenseNumber, licenseExpiry,
-    driverStatus, preferredTruckId, emergencyContact, notes,
+    fullName, email, password, phone, idPassportNumber,
+    licenseNumber, licenseExpiry, driverStatus, preferredTruckId,
+    emergencyContact, notes,
   } = req.body;
 
+  // Normalize phone
+  const phoneNorm = phone ? normalizeKenyanPhone(phone) : null;
+  if (phone && !phoneNorm) {
+    return res.status(400).json({ error: 'Enter a valid Kenyan phone number.', field: 'phone' });
+  }
+
   try {
+    const hash = await bcrypt.hash(password, 12);
     const result = await withTransaction(async (c) => {
-      const hash = await bcrypt.hash(password, 12);
-      const { rows: userRows } = await c.query(
-        `INSERT INTO users (email, full_name, role, password_hash)
-         VALUES ($1,$2,'driver',$3)
-         RETURNING id, email, full_name, role, is_active`,
+      const { rows: uRow } = await c.query(
+        `INSERT INTO users (email, full_name, role, password_hash, is_active)
+         VALUES ($1, $2, 'driver', $3, TRUE) RETURNING id`,
         [email, fullName, hash]
       );
-      const user = userRows[0];
-
+      const userId = uRow[0].id;
       await c.query(
         `INSERT INTO driver_profiles
-           (user_id, phone, id_passport_number, license_number, license_expiry,
-            driver_status, preferred_truck_id, emergency_contact, notes)
-         VALUES ($1,$2,$3,$4,$5,COALESCE($6,'active'),$7,$8,$9)`,
-        [
-          user.id, phone, idPassportNumber, licenseNumber, licenseExpiry || null,
-          driverStatus, preferredTruckId || null, emergencyContact, notes,
-        ]
+          (user_id, phone, driver_status, id_passport_number, license_number, license_expiry,
+           preferred_truck_id, emergency_contact, notes)
+         VALUES ($1, $2, COALESCE($3, 'active'), $4, $5, $6, $7, $8, $9)`,
+        [userId, phoneNorm, driverStatus, idPassportNumber || null, licenseNumber || null,
+         licenseExpiry || null, preferredTruckId || null, emergencyContact || null, notes || null]
       );
-      return user;
+      return userId;
+    });
+    await auditLog(req.user.id, 'driver.created', 'user', result, { email }, req.ip);
+    res.status(201).json({ id: result });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'A user with this email already exists.', field: 'email' });
+    }
+    console.error('driver create error:', err);
+    res.status(500).json({ error: 'Could not create driver.' });
+  }
+});
+
+// PATCH /api/drivers/:id  ← the editable one
+router.patch('/:id', fleetOrAbove, [
+  body('fullName').optional({ checkFalsy: true }).trim().isLength({ min: 1, max: 200 }),
+  body('email').optional({ checkFalsy: true }).isEmail().withMessage('Enter a valid email.').normalizeEmail(),
+  body('phone').optional({ checkFalsy: true }).isString().isLength({ max: 30 }),
+  body('password').optional({ checkFalsy: true }).isLength({ min: 8 }).withMessage('Password must be at least 8 characters.'),
+  body('isActive').optional().isBoolean(),
+  body('driverStatus').optional({ checkFalsy: true }).isIn(['active', 'inactive', 'suspended']).withMessage('Status must be active, inactive or suspended.'),
+  body('licenseExpiry').optional({ checkFalsy: true }).isISO8601().withMessage('Licence expiry must be a date.'),
+  body('preferredTruckId').optional({ nullable: true }).custom(v => v === null || v === '' || /^[0-9a-f-]{36}$/i.test(v)),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    const first = errors.array()[0];
+    return res.status(400).json({ error: first.msg, field: first.path });
+  }
+
+  const b = req.body;
+  // Normalize phone if given
+  let phoneNorm;
+  if (b.phone !== undefined) {
+    if (b.phone === null || b.phone === '') phoneNorm = null;
+    else {
+      phoneNorm = normalizeKenyanPhone(b.phone);
+      if (!phoneNorm) return res.status(400).json({ error: 'Enter a valid Kenyan phone number.', field: 'phone' });
+    }
+  }
+
+  try {
+    await withTransaction(async (c) => {
+      // ── users table ─────────────────────────────────────────────────────────
+      const userSets = [];
+      const userVals = [];
+      const addU = (col, val) => { userVals.push(val); userSets.push(`${col} = $${userVals.length}`); };
+      if (b.fullName !== undefined) addU('full_name', b.fullName);
+      if (b.email    !== undefined) addU('email', b.email);
+      if (b.isActive !== undefined) addU('is_active', !!b.isActive);
+      if (b.password) addU('password_hash', await bcrypt.hash(b.password, 12));
+      if (userSets.length) {
+        userVals.push(req.params.id);
+        const { rowCount } = await c.query(
+          `UPDATE users SET ${userSets.join(', ')} WHERE id = $${userVals.length} AND role = 'driver'`,
+          userVals
+        );
+        if (!rowCount) throw Object.assign(new Error('Driver not found'), { status: 404 });
+      }
+
+      // ── driver_profiles table ───────────────────────────────────────────────
+      // A driver_profiles row may or may not exist yet, so upsert.
+      const profFields = {};
+      if (phoneNorm           !== undefined) profFields.phone = phoneNorm;
+      if (b.driverStatus     !== undefined) profFields.driver_status = b.driverStatus;
+      if (b.idPassportNumber !== undefined) profFields.id_passport_number = b.idPassportNumber || null;
+      if (b.licenseNumber    !== undefined) profFields.license_number = b.licenseNumber || null;
+      if (b.licenseExpiry    !== undefined) profFields.license_expiry = b.licenseExpiry || null;
+      if (b.emergencyContact !== undefined) profFields.emergency_contact = b.emergencyContact || null;
+      if (b.notes            !== undefined) profFields.notes = b.notes || null;
+      if (b.preferredTruckId !== undefined) profFields.preferred_truck_id = b.preferredTruckId || null;
+
+      const keys = Object.keys(profFields);
+      if (keys.length) {
+        // Build: INSERT (user_id, k1, k2) VALUES ($1, $2, $3)
+        //        ON CONFLICT (user_id) DO UPDATE SET k1 = EXCLUDED.k1, k2 = EXCLUDED.k2
+        const cols = ['user_id', ...keys];
+        const vals = [req.params.id, ...keys.map(k => profFields[k])];
+        const placeholders = cols.map((_, i) => `$${i + 1}`).join(', ');
+        const updateSet = keys.map(k => `${k} = EXCLUDED.${k}`).join(', ');
+        await c.query(
+          `INSERT INTO driver_profiles (${cols.join(', ')})
+           VALUES (${placeholders})
+           ON CONFLICT (user_id) DO UPDATE SET ${updateSet}`,
+          vals
+        );
+      }
     });
 
-    await auditLog(req.user.id, 'driver.created', 'user', result.id, { email }, req.ip);
-    res.status(201).json(result);
+    // Return the fresh driver row
+    const { rows } = await query(`${DRIVER_SELECT} AND u.id = $1`, [req.params.id]);
+    await auditLog(req.user.id, 'driver.updated', 'user', req.params.id, b, req.ip);
+    res.json(rows[0]);
   } catch (err) {
-    if (err.code === '23505') return res.status(409).json({ error: 'Email already exists' });
-    throw err;
-  }
-});
-
-// PUT /api/drivers/:id — update profile (and optionally name/email/active)
-router.put('/:id', fleetOrAbove, async (req, res) => {
-  const id = req.params.id;
-
-  // Map camelCase body keys → driver_profiles columns.
-  const profileMap = {
-    phone: 'phone',
-    idPassportNumber: 'id_passport_number',
-    licenseNumber: 'license_number',
-    licenseExpiry: 'license_expiry',
-    driverStatus: 'driver_status',
-    preferredTruckId: 'preferred_truck_id',
-    emergencyContact: 'emergency_contact',
-    notes: 'notes',
-  };
-
-  const profileUpdates = {};
-  Object.entries(profileMap).forEach(([k, col]) => {
-    if (req.body[k] !== undefined) profileUpdates[col] = req.body[k] === '' ? null : req.body[k];
-  });
-
-  const userUpdates = {};
-  if (req.body.fullName !== undefined) userUpdates.full_name = req.body.fullName;
-  if (req.body.isActive !== undefined) userUpdates.is_active = req.body.isActive;
-
-  if (!Object.keys(profileUpdates).length && !Object.keys(userUpdates).length) {
-    return res.status(400).json({ error: 'No valid fields to update' });
-  }
-
-  await withTransaction(async (c) => {
-    // Ensure a profile row exists (driver may predate this feature).
-    await c.query(
-      `INSERT INTO driver_profiles (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
-      [id]
-    );
-
-    if (Object.keys(profileUpdates).length) {
-      const set = Object.keys(profileUpdates).map((col, i) => `${col} = $${i + 1}`).join(', ');
-      const vals = [...Object.values(profileUpdates), id];
-      await c.query(`UPDATE driver_profiles SET ${set} WHERE user_id = $${vals.length}`, vals);
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'That email is already in use by another user.', field: 'email' });
     }
-    if (Object.keys(userUpdates).length) {
-      const set = Object.keys(userUpdates).map((col, i) => `${col} = $${i + 1}`).join(', ');
-      const vals = [...Object.values(userUpdates), id];
-      await c.query(`UPDATE users SET ${set} WHERE id = $${vals.length}`, vals);
-    }
-  });
-
-  await auditLog(req.user.id, 'driver.updated', 'user', id, { ...profileUpdates, ...userUpdates }, req.ip);
-
-  const { rows } = await query(`${DRIVER_SELECT} AND u.id = $1`, [id]);
-  res.json(rows[0]);
-});
-
-// DELETE /api/drivers/:id — soft delete (never hard-delete a driver with journeys)
-router.delete('/:id', adminOnly, async (req, res) => {
-  const { rows } = await query(
-    `UPDATE users SET is_active = FALSE WHERE id = $1 AND role = 'driver' RETURNING id`,
-    [req.params.id]
-  );
-  if (!rows.length) return res.status(404).json({ error: 'Driver not found' });
-  await query(`UPDATE driver_profiles SET driver_status = 'inactive' WHERE user_id = $1`, [req.params.id]);
-  await auditLog(req.user.id, 'driver.deactivated', 'user', req.params.id, {}, req.ip);
-  res.json({ message: 'Driver deactivated' });
+    console.error('driver update error:', err);
+    res.status(500).json({ error: 'Could not update driver.' });
+  }
 });
 
 module.exports = router;

@@ -73,7 +73,9 @@ export default function FleetPage() {
                 <div key={truck.id} className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-sm transition-shadow">
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <p className="font-semibold text-gray-900 text-sm">{truck.name}</p>
+                      <a href={`/portal/fleet/${truck.id}`} className="font-semibold text-gray-900 text-sm hover:text-[#E8620A] hover:underline">
+                        {truck.name}
+                      </a>
                       <p className="text-xs text-gray-400 font-mono mt-0.5">{truck.registration}</p>
                     </div>
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[truck.status] || 'bg-gray-100 text-gray-600'}`}>
@@ -88,14 +90,20 @@ export default function FleetPage() {
                       <div className="flex justify-between text-xs"><span className="text-gray-400">Capacity</span><span className="text-gray-700">{truck.capacity_tons}T</span></div>
                     )}
                   </div>
-                  <select value={truck.status} onChange={e => updateStatus(truck.id, e.target.value)}
-                    className="w-full border border-gray-200 rounded-md text-xs px-2 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-[#E8620A]">
-                    <option value="available">Set Available</option>
-                    <option value="on_route">Set On Route</option>
-                    <option value="maintenance">Set Maintenance</option>
-                    <option value="scheduled">Set Scheduled</option>
-                    <option value="loading">Set Loading</option>
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <select value={truck.status} onChange={e => updateStatus(truck.id, e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-md text-xs px-2 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-[#E8620A]">
+                      <option value="available">Set Available</option>
+                      <option value="on_route">Set On Route</option>
+                      <option value="maintenance">Set Maintenance</option>
+                      <option value="scheduled">Set Scheduled</option>
+                      <option value="loading">Set Loading</option>
+                    </select>
+                    <a href={`/portal/fleet/${truck.id}`}
+                      className="text-xs text-[#E8620A] hover:underline font-medium whitespace-nowrap px-1">
+                      Edit →
+                    </a>
+                  </div>
                 </div>
               ))}
             </div>

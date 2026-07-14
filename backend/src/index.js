@@ -28,6 +28,8 @@ const assignmentsRoutes = require('./routes/assignments');  // NEW
 const contentRoutes     = require('./routes/content');      // NEW — CMS + public site content
 const emailSettingsRoutes = require('./routes/emailSettings'); // NEW — sender email config
 const analyticsRoutes   = require('./routes/analytics');    // NEW — BI refresh + summaries
+const clientAuthRoutes  = require('./routes/clientAuth');   // NEW — client invite accept
+const clientPortalRoutes = require('./routes/clientPortal'); // NEW — client-scoped reads
 
 const app = express();
 
@@ -50,6 +52,12 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   message: { error: 'Too many login attempts. Please try again later.' },
+});
+
+const inviteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many attempts. Please try again later.' },
 });
 
 app.use(globalLimiter);
@@ -75,6 +83,8 @@ app.use('/api/assignments', assignmentsRoutes);  // NEW
 app.use('/api/content',     contentRoutes);      // NEW
 app.use('/api/email-settings', emailSettingsRoutes); // NEW
 app.use('/api/analytics',   analyticsRoutes);    // NEW
+app.use('/api/client-portal', clientPortalRoutes); // NEW — client-scoped reads
+app.use('/api/client-auth', inviteLimiter, clientAuthRoutes); // NEW — invite accept (unauthenticated)
 
 // ─── Public quote submission (no auth required) ───────────────────────────────
 app.use('/api/public', require('./routes/public'));

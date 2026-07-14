@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Sidebar from '@/components/admin/Sidebar';
 import { get, post } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 
 const fmtKES = (n) => 'KES ' + Number(n || 0).toLocaleString();
 
@@ -21,11 +22,18 @@ const QB_COLORS = {
 
 export default function JourneyDetailPage() {
   const { id } = useParams();
+  const { hasRole } = useAuth();
+  const canGenerateQuote   = hasRole('super_admin', 'fleet_manager', 'planner');
+  const canGenerateInvoice = hasRole('super_admin', 'finance');
   const [j, setJ] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
+  const [invForm, setInvForm] = useState({ amount: '', taxRate: 0, dueDays: 14 });
 
-  const load = () => get(`/journeys/${id}`).then(setJ).catch(e => alert(e.message)).finally(() => setLoading(false));
+  const load = () => get(`/journeys/${id}`).then((data) => {
+    setJ(data);
+    setInvForm((f) => ({ ...f, amount: data.final_cost ?? data.estimated_cost ?? '' }));
+  }).catch(e => alert(e.message)).finally(() => setLoading(false));
   useEffect(() => { if (id) load(); }, [id]);
 
   const markDelivered = async () => {
@@ -42,6 +50,27 @@ export default function JourneyDetailPage() {
       load();
     } catch (e) { alert('QuickBooks: ' + e.message); }
     finally { setBusy(''); }
+  };
+
+  const generateQuotation = async () => {
+    setBusy('quote');
+    try { await post(`/journeys/${id}/generate-quotation`); load(); }
+    catch (e) { alert(e.message); } finally { setBusy(''); }
+  };
+
+  const generateInvoice = async () => {
+    if (!invForm.amount) { alert('Enter an amount.'); return; }
+    setBusy('invoice');
+    try {
+      await post('/invoices', {
+        clientId: j.client_id,
+        journeyId: j.id,
+        amount: Number(invForm.amount),
+        taxRate: Number(invForm.taxRate) || 0,
+        dueDays: Number(invForm.dueDays) || 14,
+      });
+      load();
+    } catch (e) { alert(e.message); } finally { setBusy(''); }
   };
 
   if (loading) return <Shell><div className="p-6 text-gray-400">Loading…</div></Shell>;
@@ -123,6 +152,31 @@ export default function JourneyDetailPage() {
           </div>
 
           <div className="bg-white rounded-xl border border-gray-100 p-5">
+            <h2 className="text-sm font-semibold text-gray-900 mb-3">Quotation</h2>
+            {j.quotation ? (
+              <>
+                <Row k="Quotation" v={j.quotation.reference} />
+                <Row k="Status" v={j.quotation.status} />
+                <Row k="Amount" v={fmtKES(j.quotation.amount)} />
+                <a href="/portal/quotes" className="mt-2 inline-block text-xs text-[#E8620A] hover:underline">
+                  Open in Quotations →
+                </a>
+              </>
+            ) : !canGenerateQuote ? (
+              <p className="text-sm text-gray-400">Only fleet managers, planners and admins can generate quotations.</p>
+            ) : !j.client_id ? (
+              <p className="text-sm text-gray-400">Assign a customer to this journey to generate a quotation.</p>
+            ) : (j.final_cost ?? j.estimated_cost) == null ? (
+              <p className="text-sm text-gray-400">Calculate a cost in the planner before generating a quotation.</p>
+            ) : (
+              <button onClick={generateQuotation} disabled={busy === 'quote'}
+                className="w-full text-xs font-medium px-4 py-2 rounded-md border border-[#0F1E2E] text-[#0F1E2E] hover:bg-[#0F1E2E] hover:text-white disabled:opacity-40">
+                {busy === 'quote' ? 'Generating…' : 'Generate quotation'}
+              </button>
+            )}
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-100 p-5">
             <h2 className="text-sm font-semibold text-gray-900 mb-3">Invoice & QuickBooks</h2>
             {j.invoice ? (
               <>
@@ -141,8 +195,25 @@ export default function JourneyDetailPage() {
                   </button>
                 )}
               </>
+            ) : !canGenerateInvoice ? (
+              <p className="text-sm text-gray-400">Only finance and admins can generate invoices.</p>
+            ) : !j.client_id ? (
+              <p className="text-sm text-gray-400">Assign a customer to this journey to generate an invoice.</p>
             ) : (
-              <p className="text-sm text-gray-400">No invoice yet. Create one from the Invoices page once delivered.</p>
+              <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <MiniField label="Amount" value={invForm.amount}
+                    onChange={(v) => setInvForm({ ...invForm, amount: v })} />
+                  <MiniField label="Tax %" value={invForm.taxRate}
+                    onChange={(v) => setInvForm({ ...invForm, taxRate: v })} />
+                  <MiniField label="Due (days)" value={invForm.dueDays}
+                    onChange={(v) => setInvForm({ ...invForm, dueDays: v })} />
+                </div>
+                <button onClick={generateInvoice} disabled={busy === 'invoice'}
+                  className="w-full text-xs font-medium px-4 py-2 rounded-md bg-[#E8620A] hover:bg-[#F7813B] text-white disabled:opacity-40">
+                  {busy === 'invoice' ? 'Generating…' : 'Generate invoice'}
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -172,6 +243,15 @@ function Line({ k, v, bold, accent = 'text-gray-900' }) {
     <div className="flex justify-between">
       <span className="text-gray-500">{k}</span>
       <span className={`${bold ? 'font-semibold' : ''} ${accent}`}>{v}</span>
+    </div>
+  );
+}
+function MiniField({ label, value, onChange }) {
+  return (
+    <div>
+      <label className="block text-[10px] font-medium text-gray-500 mb-0.5">{label}</label>
+      <input type="number" value={value} onChange={(e) => onChange(e.target.value)}
+        className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#E8620A]" />
     </div>
   );
 }

@@ -7,6 +7,7 @@ const navItems = [
   { label: 'Dashboard',       href: '/portal/dashboard', icon: '▤',  roles: null },
   { label: 'Fleet & Trucks',  href: '/portal/fleet',     icon: '🚛', roles: null },
   { label: 'Drivers',         href: '/portal/drivers',   icon: '🧑‍✈️', roles: ['super_admin','fleet_manager','planner','finance'] },
+  { label: 'Clients',         href: '/portal/clients',   icon: '🏢', roles: ['super_admin','fleet_manager','finance'] },
   { label: 'Journey Planner', href: '/portal/schedule',  icon: '🗺️', roles: ['super_admin','fleet_manager','planner'] },
   { label: 'Quotations',      href: '/portal/quotes',    icon: '📋', roles: ['super_admin','finance','fleet_manager','planner'] },
   { label: 'Invoices',        href: '/portal/invoices',  icon: '🧾', roles: ['super_admin','finance'] },

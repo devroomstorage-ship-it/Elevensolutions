@@ -1,6 +1,6 @@
 import Cookies from 'js-cookie';
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+export const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 let isRefreshing = false;
 let refreshQueue = [];
@@ -9,6 +9,13 @@ const processQueue = (error, token) => {
   refreshQueue.forEach(({ resolve, reject }) => error ? reject(error) : resolve(token));
   refreshQueue = [];
 };
+
+// Staff and clients share this fetch wrapper but log in on different pages —
+// send an expired session back to whichever login page matches where it was.
+const loginUrl = () =>
+  typeof window !== 'undefined' && window.location.pathname.startsWith('/account')
+    ? '/account/login'
+    : '/portal/login';
 
 export const api = async (path, options = {}) => {
   const accessToken = Cookies.get('es_access_token');
@@ -35,7 +42,7 @@ export const api = async (path, options = {}) => {
       isRefreshing = true;
       const refreshToken = Cookies.get('es_refresh_token');
       if (!refreshToken) {
-        window.location.href = '/portal/login';
+        window.location.href = loginUrl();
         return;
       }
 
@@ -57,7 +64,7 @@ export const api = async (path, options = {}) => {
         isRefreshing = false;
         Cookies.remove('es_access_token');
         Cookies.remove('es_refresh_token');
-        window.location.href = '/portal/login';
+        window.location.href = loginUrl();
         return;
       }
     }

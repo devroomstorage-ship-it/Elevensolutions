@@ -4,6 +4,7 @@ const { query, withTransaction } = require('../db');
 const { authenticate, plannerOrAbove, allStaff, auditLog } = require('../middleware/auth');
 const { getRoute, geocode, directionsLink } = require('../services/maps');
 const { calculateJourneyCost } = require('../services/costing');
+const { createUniqueQuoteReference } = require('../utils/quoteReference');
 
 const router = express.Router();
 router.use(authenticate);
@@ -76,6 +77,18 @@ router.get('/:id', allStaff, async (req, res) => {
     [journey.id]
   );
   journey.invoice = inv[0] || null;
+
+  // Find the linked quotation if any (journeys.quotation_id is set either by
+  // the quote→journey convert flow, or by generate-quotation below).
+  if (journey.quotation_id) {
+    const { rows: quo } = await query(
+      'SELECT id, reference, status, amount FROM quotations WHERE id = $1',
+      [journey.quotation_id]
+    );
+    journey.quotation = quo[0] || null;
+  } else {
+    journey.quotation = null;
+  }
 
   res.json(journey);
 });
@@ -275,6 +288,53 @@ router.post('/:id/approve-cost', plannerOrAbove, async (req, res) => {
   await query('UPDATE journeys SET final_cost = $1 WHERE id = $2', [finalCost, req.params.id]);
   await auditLog(req.user.id, 'journey.cost_approved', 'journey', req.params.id, { finalCost }, req.ip);
   res.json(rows[0]);
+});
+
+// POST /api/journeys/:id/generate-quotation — create a matching quotation
+// record from this journey's own data, for jobs booked directly (not from
+// an existing quote). Marked 'accepted' immediately since the journey it
+// documents already exists. One-shot: a journey can only have one linked
+// quotation (mirrors the quote→journey 'convert' flow in quotes.js, which
+// enforces the same relationship from the other direction).
+router.post('/:id/generate-quotation', plannerOrAbove, async (req, res) => {
+  const { rows } = await query('SELECT * FROM journeys WHERE id = $1', [req.params.id]);
+  if (!rows.length) return res.status(404).json({ error: 'Journey not found' });
+  const journey = rows[0];
+
+  if (journey.quotation_id) {
+    return res.status(409).json({ error: 'This journey already has a linked quotation.' });
+  }
+  if (!journey.client_id) {
+    return res.status(400).json({ error: 'Assign a customer to this journey before generating a quotation.' });
+  }
+  const amount = journey.final_cost ?? journey.estimated_cost;
+  if (amount == null) {
+    return res.status(400).json({ error: 'Calculate a cost for this journey before generating a quotation.' });
+  }
+
+  try {
+    const result = await withTransaction(async (c) => {
+      const reference = await createUniqueQuoteReference(c.query.bind(c));
+      const { rows: qRows } = await c.query(`
+        INSERT INTO quotations
+          (reference, client_id, origin, destination, cargo_type, weight_tons,
+           amount, status, valid_until, journey_id, created_by)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,'accepted',CURRENT_DATE + 30, $8, $9)
+        RETURNING *
+      `, [
+        reference, journey.client_id, journey.origin, journey.destination,
+        journey.cargo_type, journey.cargo_weight_tons, amount, journey.id, req.user.id,
+      ]);
+      await c.query('UPDATE journeys SET quotation_id = $1 WHERE id = $2', [qRows[0].id, journey.id]);
+      return qRows[0];
+    });
+
+    await auditLog(req.user.id, 'journey.quotation_generated', 'journey', journey.id, { quotationId: result.id }, req.ip);
+    res.status(201).json(result);
+  } catch (err) {
+    console.error('generate-quotation error:', err);
+    res.status(500).json({ error: 'Could not generate quotation.' });
+  }
 });
 
 // POST /api/journeys/:id/mark-delivered

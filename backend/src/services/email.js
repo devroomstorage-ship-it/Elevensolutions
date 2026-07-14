@@ -415,7 +415,7 @@ async function sendInvoiceCreatedEmail(to, companyName, invoice, quote = {}) {
           <p style="color:#444;">Your invoice has been created.</p>
           <p style="color:#444;">Invoice No: <strong>${invoiceNo}</strong></p>
           ${quote.reference ? `<p style="color:#444;">Quote Reference: <strong>${quote.reference}</strong></p>` : ''}
-          ${invoice.amount ? `<p style="color:#444;">Amount: <strong>${formatKES(invoice.amount)}</strong></p>` : ''}
+          ${(invoice.total_amount ?? invoice.amount) ? `<p style="color:#444;">Amount: <strong>${formatKES(invoice.total_amount ?? invoice.amount)}</strong></p>` : ''}
           ${trackingUrl ? `<p><a href="${trackingUrl}" style="display:inline-block;background:#E8620A;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;">View Invoice</a></p>` : ''}
         </div>
         <div style="background:#f4f6f9;padding:16px;text-align:center;"><p style="color:#888;font-size:11px;margin:0;">${footerLine}</p></div>
@@ -509,7 +509,7 @@ async function sendInvoiceEmail(to, companyName, invoice, pdfBuffer) {
             <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;width:140px;">Invoice No.</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;color:#333;">${invoice.reference}</td></tr>
             <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Issued</td><td style="padding:8px 12px;font-size:13px;color:#333;">${formatDate(invoice.created_at)}</td></tr>
             ${invoice.due_date ? `<tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Due</td><td style="padding:8px 12px;font-size:13px;color:#333;">${formatDate(invoice.due_date)}</td></tr>` : ''}
-            <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Amount</td><td style="padding:8px 12px;font-size:14px;color:#E8620A;font-weight:bold;">${formatKES(invoice.amount)}</td></tr>
+            <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Amount</td><td style="padding:8px 12px;font-size:14px;color:#E8620A;font-weight:bold;">${formatKES(invoice.total_amount ?? invoice.amount)}</td></tr>
           </table>
           <p style="color:#444;font-size:13px;">For any questions about this invoice, ${callOnLine.toLowerCase()}.</p>
         </div>
@@ -518,6 +518,34 @@ async function sendInvoiceEmail(to, companyName, invoice, pdfBuffer) {
         </div>
       </div>`,
     attachments: [{ filename: `Invoice-${invoice.reference}.pdf`, content: pdfBuffer }],
+  });
+}
+
+// ─── Send: client portal invite ───────────────────────────────────────────────
+async function sendClientInviteEmail(to, companyName, setPasswordUrl) {
+  const { from, replyTo } = await resolveFrom('ack');
+  await sendEmail({
+    to, from, replyTo,
+    subject: `You're invited to the Eleven Solutions client portal`,
+    text: [
+      `Dear ${companyName},`,
+      '',
+      `Eleven Solutions has set up online access to your quotes, invoices and journeys.`,
+      `Set your password to get started: ${setPasswordUrl}`,
+      '',
+      `This link expires in 72 hours.`,
+    ].join('\n'),
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+        <div style="background:#0F1E2E;padding:24px;"><h2 style="color:#fff;margin:0;">${COMPANY.name}</h2></div>
+        <div style="background:#fff;padding:28px;border:1px solid #e5e7eb;">
+          <p style="color:#444;">Dear <strong>${companyName}</strong>,</p>
+          <p style="color:#444;">We've set up online access to your quotes, invoices and journeys with ${COMPANY.name}.</p>
+          <p><a href="${setPasswordUrl}" style="display:inline-block;background:#E8620A;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;">Set your password</a></p>
+          <p style="color:#666;font-size:13px;">This link expires in 72 hours. If you didn't expect this invite, ${callOnLine.toLowerCase()}.</p>
+        </div>
+        <div style="background:#f4f6f9;padding:16px;text-align:center;"><p style="color:#888;font-size:11px;margin:0;">${footerLine}</p></div>
+      </div>`,
   });
 }
 
@@ -545,6 +573,7 @@ module.exports = {
   sendInvoiceCreatedEmail,
   sendQuoteAdminNotification,
   sendInvoiceEmail,
+  sendClientInviteEmail,
   sendTestEmail,
   getEmailSettings,
   invalidateEmailSettingsCache,

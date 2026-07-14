@@ -313,7 +313,7 @@ router.get('/quotes/status', otpLimiter, async (req, res) => {
       invoice: invoice ? {
         invoiceNumber: invoice.invoice_number || invoice.reference || null,
         status: invoice.status || 'created',
-        amount: invoice.amount || null,
+        amount: invoice.total_amount ?? invoice.amount ?? null,
         dueDate: invoice.due_date || null,
         pdfUrl: invoice.pdf_url || null,
         createdAt: invoice.created_at || null,
