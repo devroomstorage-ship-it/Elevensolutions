@@ -131,8 +131,14 @@ ORDER BY t.typname, e.enumsortorder;
 **Fleet:**
 - `trucks` — registration UNIQUE, name, type, capacity_tons, year, make, model,
   fuel_type, driver_id FK (current keeper, soft ref), status, odometer_km,
-  default_cost_per_km, fixed_daily_cost, insurance_expiry, inspection_expiry, notes.
-  `status` enum: `available, scheduled, on_route, loading, maintenance, inactive`
+  insurance_expiry, inspection_expiry, notes, plus the **fuel-based pricing inputs**
+  (migration 012): `fuel_efficiency_km_per_l`, `daily_rate`, `extra_day_rate`.
+  ⚠️ `default_cost_per_km` / `fixed_daily_cost` still exist but are **legacy** —
+  the costing engine no longer reads them (see Costing model section).
+  `status` enum: `available, scheduled, on_route, loading, maintenance, inactive`.
+  **The real fleet is loaded** (migration 013, from the client's roster): 13 trucks —
+  six 18T, six 12T, one 7T — each with its real driver assigned. The 13 seed
+  placeholders (KDB 001G–013G) are `status='inactive'`, kept for history.
 - `driver_truck_assignments` — driver_id FK, truck_id FK, assigned_at, unassigned_at
   (NULL = active), assigned_by FK, notes. **Partial unique index on `(truck_id) WHERE
   unassigned_at IS NULL`** — enforces at most one active assignment per truck, race-safe.
@@ -151,9 +157,10 @@ ORDER BY t.typname, e.enumsortorder;
   driver_id FK (both NOT NULL), origin, destination, cargo_type, cargo_weight_tons,
   scheduled_date, departure_time, arrival_time, status, estimated_cost, final_cost,
   distance_km, truck_registration_snapshot, driver_name_snapshot (preserve history),
-  created_by FK, notes. Detail views also join `journey_costs` (cost_per_km,
-  fixed_daily_cost, extra_charges, manual_adjustment) — internal margin data, never
-  expose to a client-facing endpoint.
+  created_by FK, notes. Detail views also join `journey_costs` (fuel + rate snapshot
+  columns from migration 012, plus legacy cost_per_km/fixed_daily_cost on old rows,
+  extra_charges, manual_adjustment) — internal margin data, never expose to a
+  client-facing endpoint.
   `status` enum: `scheduled, loading, in_transit, delivered, cancelled`
 - `invoices` — reference UNIQUE (INV-001), client_id FK, journey_id FK, amount,
   tax_amount, total_amount, status, issue_date, due_date, paid_date, sent_at,
@@ -167,7 +174,11 @@ ORDER BY t.typname, e.enumsortorder;
 - `site_settings` — key/value store. Known keys: `email_primary`, `email_secondary`,
   `email_from_address`, `email_from_name`, `email_reply_to`,
   `email_from_quotes` / `_invoices` / `_ack`, `email_smtp_host`, `email_smtp_port`,
-  `email_smtp_user`, `email_smtp_pass`
+  `email_smtp_user`, `email_smtp_pass`, and `fuel_price_per_litre` (group `pricing`,
+  edited at Settings → Pricing, read by the costing engine).
+  ⚠️ The public `GET /api/content/site` payload **must keep excluding** the four
+  `email_smtp_*` keys and the `pricing` group — it used to return the SMTP password
+  to the public internet until that WHERE clause was added (fixed alongside mig 012).
 - `site_sections`, `site_services`, `service_areas`, `site_testimonials` — public site content
 
 **Views:**
@@ -246,6 +257,51 @@ bloating the Docker image — worth removing, but hasn't been done yet.
 `{ lineBreak: false, height: 2000 }`, causes phantom page breaks. If touching the
 invoice PDF, keep those options on every `text()` call; use `buildFooter`'s manual
 `widthOfString` centering instead of `align: 'center'`.
+
+## Costing model (fuel-based — the client's real formula)
+
+Since migration 012 the costing engine (`backend/src/services/costing.js`, pure
+function) implements the pricing model from the client's own Truck Costing sheet —
+**not** per-km pricing:
+
+```
+billable_km    = distance_km × 2 when round trip (planner toggle, default ON)
+fuel_cost      = billable_km ÷ truck.fuel_efficiency_km_per_l × fuel_price_per_litre
+daily_cost     = truck.daily_rate + (days − 1) × truck.extra_day_rate
+estimated_cost = fuel_cost + daily_cost + extra_charges + manual_adjustment
+```
+
+- Fuel price is global: `site_settings.fuel_price_per_litre` (default 200 KES/L),
+  edited at **Settings → Pricing**, served to staff via `GET /api/content/pricing`.
+  `POST /journeys/:id/calculate-cost` reads it server-side — never trust a
+  client-supplied fuel price.
+- Real rates (per the client's sheet): 18T → 2 km/L, 16,000/day, 7,000/extra day;
+  12T → 4 km/L, 9,000/day, 5,000/extra day; the one 7T runs 10T rates
+  (4 km/L, 7,000/day, 3,000/extra day) **pending client confirmation** — flagged
+  in that truck's notes.
+- `calculate-cost` 400s if the truck has no `fuel_efficiency_km_per_l` — a truck
+  must have rates before it can be priced.
+- Old `journey_costs` rows have NULL fuel columns; the journey detail page falls
+  back to the legacy per-km breakdown display for those rows.
+- Verification anchor: 18T, 50 km one-way, round trip, 1 day must equal exactly
+  **KES 26,000** (10,000 fuel + 16,000 day rate) — the sheet's own example.
+
+Journey planner extras (same era): the journey detail page can **generate a
+quotation** from a costed journey (`POST /journeys/:id/generate-quotation`,
+plannerOrAbove, one per journey, status='accepted') and **generate an invoice**
+(reuses `POST /invoices`, financeOrAdmin, amount prefilled from final/estimated
+cost). Role split is enforced on both ends — planner can't invoice, finance
+can't generate quotes.
+
+## Hosting move (planned): GoDaddy VPS
+
+`GODADDY_PRODUCTION_GUIDE.txt` at the repo root covers the client's planned move
+off Render: needs a self-managed VPS (shared hosting can't run Docker), Postgres
+stays as the compose container on VPS disk (data is tiny; nightly pg_dump +
+off-server copy becomes our job), secrets go in a server-side `.env` (never
+committed), and migration_013's PII should be gutted from the file (not history)
+once applied everywhere. 2FA recommendation: finish the already-scaffolded TOTP
+flow — no third-party service needed.
 
 ## Render gotchas
 
@@ -330,11 +386,17 @@ optional non-empty, `.optional({ nullable: true })` for genuinely nullable.
   `client-portal`, since clients can't edit their own email)
 
 **Client feedback still to address:**
-- Fuel price input (for cost calc?)
+- ~~Fuel price input~~ — **done**: Settings → Pricing edits
+  `site_settings.fuel_price_per_litre`, consumed by the fuel-based costing engine
 - Google Maps preview on origin/destination fields
-- Quotation → journey planner autofill
+- Quotation → journey planner autofill (note the *reverse* now exists — a journey
+  can generate its quotation/invoice from the journey detail page)
 - "Input validation + integrate a third party" — ambiguous, needs clarification
   from the client on which third party and for what purpose before building anything
+- 7T truck (KCG 408X) runs 10T rates as a placeholder — get the real 7T rates
+  from the client
+- David Gichuki's roster phone (`+25474060790`) looks one digit short — confirm
+  and fix on his driver profile
 
 ## Company details (used throughout code — don't change without asking)
 

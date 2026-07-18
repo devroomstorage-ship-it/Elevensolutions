@@ -5,6 +5,8 @@ import Link from 'next/link';
 const SECTIONS = [
   { href: '/portal/settings/email', title: 'Email & senders',
     desc: 'Configure which address quotation and invoice emails are sent from. Per-purpose overrides supported.' },
+  { href: '/portal/settings/pricing', title: 'Pricing',
+    desc: 'Global fuel price per litre used by the journey cost calculator.' },
 ];
 
 export default function SettingsPage() {

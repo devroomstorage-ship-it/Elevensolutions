@@ -68,8 +68,9 @@ router.post('/', fleetOrAbove, [
   body('capacityTons').optional({ checkFalsy: true }).isFloat({ min: 0 }).withMessage('Capacity must be zero or positive.'),
   body('year').optional({ checkFalsy: true }).isInt({ min: 1980, max: 2100 }),
   body('odometerKm').optional({ checkFalsy: true }).isInt({ min: 0 }).withMessage('Odometer must be zero or positive.'),
-  body('defaultCostPerKm').optional({ checkFalsy: true }).isFloat({ min: 0 }),
-  body('fixedDailyCost').optional({ checkFalsy: true }).isFloat({ min: 0 }),
+  body('fuelEfficiencyKmPerL').optional({ checkFalsy: true }).isFloat({ min: 0 }).withMessage('Fuel efficiency must be zero or positive.'),
+  body('dailyRate').optional({ checkFalsy: true }).isFloat({ min: 0 }).withMessage('Daily rate must be zero or positive.'),
+  body('extraDayRate').optional({ checkFalsy: true }).isFloat({ min: 0 }).withMessage('Extra-day rate must be zero or positive.'),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -82,14 +83,14 @@ router.post('/', fleetOrAbove, [
       `INSERT INTO trucks
          (registration, name, type, capacity_tons, year, driver_id, notes,
           make, model, fuel_type, insurance_expiry, inspection_expiry,
-          default_cost_per_km, fixed_daily_cost, odometer_km)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+          fuel_efficiency_km_per_l, daily_rate, extra_day_rate, odometer_km)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
       [
         b.registration.trim().toUpperCase(), b.name, b.type,
         b.capacityTons || null, b.year || null, b.driverId || null, b.notes || null,
         b.make || null, b.model || null, b.fuelType || null,
         b.insuranceExpiry || null, b.inspectionExpiry || null,
-        b.defaultCostPerKm || 0, b.fixedDailyCost || 0, b.odometerKm || 0,
+        b.fuelEfficiencyKmPerL || null, b.dailyRate || 0, b.extraDayRate || 0, b.odometerKm || 0,
       ]
     );
     await auditLog(req.user.id, 'truck.created', 'truck', rows[0].id, { registration: b.registration }, req.ip);
@@ -111,8 +112,9 @@ router.patch('/:id', fleetOrAbove, [
   body('capacityTons').optional({ nullable: true, checkFalsy: false }).isFloat({ min: 0 }).withMessage('Capacity must be zero or positive.'),
   body('year').optional({ nullable: true, checkFalsy: false }).isInt({ min: 1980, max: 2100 }),
   body('odometerKm').optional({ nullable: true, checkFalsy: false }).isInt({ min: 0 }).withMessage('Odometer must be zero or positive.'),
-  body('defaultCostPerKm').optional({ nullable: true, checkFalsy: false }).isFloat({ min: 0 }),
-  body('fixedDailyCost').optional({ nullable: true, checkFalsy: false }).isFloat({ min: 0 }),
+  body('fuelEfficiencyKmPerL').optional({ nullable: true, checkFalsy: false }).isFloat({ min: 0 }),
+  body('dailyRate').optional({ nullable: true, checkFalsy: false }).isFloat({ min: 0 }),
+  body('extraDayRate').optional({ nullable: true, checkFalsy: false }).isFloat({ min: 0 }),
   body('status').optional({ checkFalsy: true }).isIn(['available', 'on_route', 'maintenance', 'scheduled', 'loading']),
   body('insuranceExpiry').optional({ checkFalsy: true }).isISO8601(),
   body('inspectionExpiry').optional({ checkFalsy: true }).isISO8601(),
@@ -135,8 +137,9 @@ router.patch('/:id', fleetOrAbove, [
     fuelType:          'fuel_type',
     insuranceExpiry:   'insurance_expiry',
     inspectionExpiry:  'inspection_expiry',
-    defaultCostPerKm:  'default_cost_per_km',
-    fixedDailyCost:    'fixed_daily_cost',
+    fuelEfficiencyKmPerL: 'fuel_efficiency_km_per_l',
+    dailyRate:         'daily_rate',
+    extraDayRate:      'extra_day_rate',
     odometerKm:        'odometer_km',
     status:            'status',
   };
@@ -147,7 +150,7 @@ router.patch('/:id', fleetOrAbove, [
       // Normalise registration; treat empty strings as NULL for numerics
       let v = b[k];
       if (k === 'registration' && typeof v === 'string') v = v.trim().toUpperCase();
-      if (v === '' && ['capacityTons','year','odometerKm','defaultCostPerKm','fixedDailyCost','insuranceExpiry','inspectionExpiry'].includes(k)) v = null;
+      if (v === '' && ['capacityTons','year','odometerKm','fuelEfficiencyKmPerL','dailyRate','extraDayRate','insuranceExpiry','inspectionExpiry'].includes(k)) v = null;
       vals.push(v);
       sets.push(`${col} = $${vals.length}`);
     }

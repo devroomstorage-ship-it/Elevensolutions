@@ -19,7 +19,8 @@ export default function SchedulePage() {
     cargoType: '', cargoWeightTons: '', scheduledDate: '',
     distanceKm: '', notes: '',
   });
-  const [extra, setExtra] = useState({ extraCharges: 0, manualAdjustment: 0, days: 1 });
+  const [extra, setExtra] = useState({ extraCharges: 0, manualAdjustment: 0, days: 1, roundTrip: true });
+  const [fuelPrice, setFuelPrice] = useState(200);
   const [route, setRoute] = useState(null);
   const [cost, setCost]   = useState(null);
   const [busy, setBusy]   = useState('');
@@ -30,20 +31,29 @@ export default function SchedulePage() {
       get('/drivers').catch(() => []),
       get('/trucks').catch(() => []),
       get('/journeys').catch(() => []),
-    ]).then(([c, d, t, j]) => { setClients(c); setDrivers(d); setTrucks(t); setJourneys(j); });
+      get('/content/pricing').catch(() => null),
+    ]).then(([c, d, t, j, p]) => {
+      setClients(c); setDrivers(d); setTrucks(t); setJourneys(j);
+      if (p?.fuelPricePerLitre) setFuelPrice(p.fuelPricePerLitre);
+    });
   }, []);
 
   const set = (k) => (e) => setForm({ ...form, [k]: e?.target ? e.target.value : e });
 
   const selectedTruck = trucks.find(t => t.id === form.truckId);
 
-  // Local live preview of cost (mirrors backend costing.js).
+  // Local live preview of cost (mirrors backend costing.js):
+  // fuel (billable km ÷ km/L × price) + daily rate + extra days × extra-day rate.
   const previewCost = () => {
     if (!selectedTruck) return null;
     const d = Number(form.distanceKm) || 0;
-    const cpk = Number(selectedTruck.default_cost_per_km) || 0;
-    const fdc = Number(selectedTruck.fixed_daily_cost) || 0;
-    const total = d * cpk + fdc * (Number(extra.days) || 1)
+    const kmpl = Number(selectedTruck.fuel_efficiency_km_per_l) || 0;
+    const billableKm = extra.roundTrip ? d * 2 : d;
+    const fuelCost = kmpl > 0 ? (billableKm / kmpl) * fuelPrice : 0;
+    const days = Math.max(1, Number(extra.days) || 1);
+    const dailyCost = (Number(selectedTruck.daily_rate) || 0)
+      + (days - 1) * (Number(selectedTruck.extra_day_rate) || 0);
+    const total = fuelCost + dailyCost
       + Number(extra.extraCharges || 0) + Number(extra.manualAdjustment || 0);
     return Math.round(total * 100) / 100;
   };
@@ -85,6 +95,7 @@ export default function SchedulePage() {
         extraCharges: Number(extra.extraCharges) || 0,
         manualAdjustment: Number(extra.manualAdjustment) || 0,
         days: Number(extra.days) || 1,
+        roundTrip: !!extra.roundTrip,
       });
       setCost(r.breakdown);
     } catch (e) { alert(e.message); }
@@ -167,10 +178,18 @@ export default function SchedulePage() {
             <h2 className="text-sm font-semibold text-gray-900">Pricing</h2>
             {selectedTruck ? (
               <p className="text-xs text-gray-500">
-                {selectedTruck.registration}: {fmtKES(selectedTruck.default_cost_per_km)}/km
-                + {fmtKES(selectedTruck.fixed_daily_cost)}/day
+                {selectedTruck.registration}: {Number(selectedTruck.fuel_efficiency_km_per_l) || '—'} km/L
+                · {fmtKES(selectedTruck.daily_rate)}/day
+                · {fmtKES(selectedTruck.extra_day_rate)}/extra day
               </p>
             ) : <p className="text-xs text-gray-400">Pick a truck to price.</p>}
+            <p className="text-xs text-gray-400">Fuel price: {fmtKES(fuelPrice)}/litre (Settings → Pricing)</p>
+
+            <label className="flex items-center gap-2 text-xs text-gray-700">
+              <input type="checkbox" checked={!!extra.roundTrip}
+                onChange={(e) => setExtra({ ...extra, roundTrip: e.target.checked })} />
+              Round trip — fuel billed on 2× distance (to and fro)
+            </label>
 
             <Field label="Days" type="number" value={extra.days} onChange={(e) => setExtra({ ...extra, days: e.target.value })} />
             <Field label="Extra charges (tolls etc.)" type="number" value={extra.extraCharges} onChange={(e) => setExtra({ ...extra, extraCharges: e.target.value })} />

@@ -12,7 +12,11 @@ const router = express.Router();
 router.get('/site', async (req, res) => {
   try {
     const [settings, sections, services, areas, testimonials] = await Promise.all([
-      query('SELECT key, value, value_type, group_name FROM site_settings'),
+      // Never expose SMTP credentials or internal pricing inputs on the
+      // public payload — everything else in site_settings is site content.
+      query(`SELECT key, value, value_type, group_name FROM site_settings
+             WHERE key NOT IN ('email_smtp_host','email_smtp_port','email_smtp_user','email_smtp_pass')
+               AND group_name <> 'pricing'`),
       query("SELECT page, section_key, heading, subheading, body, media_url, data, sort_order FROM site_sections WHERE is_published = TRUE ORDER BY sort_order"),
       query('SELECT slug, title, tagline, description, icon, image_url, features, sort_order FROM site_services WHERE is_published = TRUE ORDER BY sort_order'),
       query('SELECT name, country, region, lat, lng, is_hub FROM service_areas WHERE is_published = TRUE ORDER BY sort_order'),
@@ -34,6 +38,14 @@ router.get('/site', async (req, res) => {
     console.error('content/site error:', err);
     res.status(500).json({ error: 'Could not load site content' });
   }
+});
+
+// GET /api/content/pricing — global pricing inputs for the journey planner
+router.get('/pricing', authenticate, allStaff, async (req, res) => {
+  const { rows } = await query(
+    "SELECT value FROM site_settings WHERE key = 'fuel_price_per_litre'"
+  );
+  res.json({ fuelPricePerLitre: Number(rows[0]?.value) || 200 });
 });
 
 // GET /api/content/service/:slug — single service detail page

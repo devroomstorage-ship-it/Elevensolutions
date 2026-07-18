@@ -55,8 +55,9 @@ export default function TruckDetailPage() {
       fuelType:          truck.fuel_type || '',
       insuranceExpiry:   truck.insurance_expiry ? truck.insurance_expiry.slice(0, 10) : '',
       inspectionExpiry:  truck.inspection_expiry ? truck.inspection_expiry.slice(0, 10) : '',
-      defaultCostPerKm:  truck.default_cost_per_km ?? '',
-      fixedDailyCost:    truck.fixed_daily_cost ?? '',
+      fuelEfficiencyKmPerL: truck.fuel_efficiency_km_per_l ?? '',
+      dailyRate:         truck.daily_rate ?? '',
+      extraDayRate:      truck.extra_day_rate ?? '',
       odometerKm:        truck.odometer_km ?? '',
       status:            truck.status || 'available',
       notes:             truck.notes || '',
@@ -70,7 +71,7 @@ export default function TruckDetailPage() {
     setSaveErr('');
     // Convert numeric fields to Number or null
     const body = { ...form };
-    ['capacityTons','year','odometerKm','defaultCostPerKm','fixedDailyCost'].forEach(k => {
+    ['capacityTons','year','odometerKm','fuelEfficiencyKmPerL','dailyRate','extraDayRate'].forEach(k => {
       if (body[k] === '' || body[k] === null) body[k] = null;
       else body[k] = Number(body[k]);
     });
@@ -138,8 +139,9 @@ export default function TruckDetailPage() {
               <Row k="Year"           v={truck.year || '—'} />
               <Row k="Fuel"           v={truck.fuel_type || '—'} />
               <Row k="Odometer"       v={truck.odometer_km != null ? `${Number(truck.odometer_km).toLocaleString()} km` : '—'} />
-              <Row k="Cost / km"      v={fmtKES(truck.default_cost_per_km)} />
-              <Row k="Fixed daily"    v={fmtKES(truck.fixed_daily_cost)} />
+              <Row k="Fuel efficiency" v={truck.fuel_efficiency_km_per_l ? `${Number(truck.fuel_efficiency_km_per_l)} km/L` : '—'} />
+              <Row k="Daily rate"     v={fmtKES(truck.daily_rate)} />
+              <Row k="Extra day rate" v={fmtKES(truck.extra_day_rate)} />
               <Row k="Insurance exp." v={fmtDate(truck.insurance_expiry)} />
               <Row k="Inspection exp."v={fmtDate(truck.inspection_expiry)} />
               <Row k="Status"         v={STATUS_OPTIONS.find(s => s.value === truck.status)?.label || truck.status || '—'} />
@@ -239,8 +241,9 @@ function EditPanel({ form, setForm, saveErr, saving, onSave, onCancel }) {
         <Field label="Model"            value={form.model}                       onChange={set('model')} />
         <Field label="Fuel type"        value={form.fuelType}                    onChange={set('fuelType')} placeholder="Diesel" />
         <Field label="Odometer (km)"    type="number" value={form.odometerKm}    onChange={set('odometerKm')} />
-        <Field label="Cost / km (KES)"  type="number" value={form.defaultCostPerKm} onChange={set('defaultCostPerKm')} />
-        <Field label="Fixed daily (KES)" type="number" value={form.fixedDailyCost}  onChange={set('fixedDailyCost')} />
+        <Field label="Fuel efficiency (km/L)" type="number" value={form.fuelEfficiencyKmPerL} onChange={set('fuelEfficiencyKmPerL')} />
+        <Field label="Daily rate (KES)" type="number" value={form.dailyRate}     onChange={set('dailyRate')} />
+        <Field label="Extra day rate (KES)" type="number" value={form.extraDayRate} onChange={set('extraDayRate')} />
         <Field label="Insurance expiry"  type="date" value={form.insuranceExpiry}  onChange={set('insuranceExpiry')} />
         <Field label="Inspection expiry" type="date" value={form.inspectionExpiry} onChange={set('inspectionExpiry')} />
       </div>

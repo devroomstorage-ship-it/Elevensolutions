@@ -122,7 +122,7 @@ function AddTruckModal({ onClose, onCreated }) {
   const [form, setForm] = useState({
     registration: '', name: '', type: 'Flatbed',
     capacityTons: '', year: '', make: '', model: '',
-    odometerKm: '', defaultCostPerKm: '', fixedDailyCost: '',
+    odometerKm: '', fuelEfficiencyKmPerL: '', dailyRate: '', extraDayRate: '',
     notes: '',
   });
   const [saving, setSaving] = useState(false);
@@ -147,9 +147,10 @@ function AddTruckModal({ onClose, onCreated }) {
       if (form.year)             body.year             = Number(form.year);
       if (form.make)             body.make             = form.make.trim();
       if (form.model)            body.model            = form.model.trim();
-      if (form.odometerKm)       body.odometerKm       = Number(form.odometerKm);
-      if (form.defaultCostPerKm) body.defaultCostPerKm = Number(form.defaultCostPerKm);
-      if (form.fixedDailyCost)   body.fixedDailyCost   = Number(form.fixedDailyCost);
+      if (form.odometerKm)           body.odometerKm           = Number(form.odometerKm);
+      if (form.fuelEfficiencyKmPerL) body.fuelEfficiencyKmPerL = Number(form.fuelEfficiencyKmPerL);
+      if (form.dailyRate)            body.dailyRate            = Number(form.dailyRate);
+      if (form.extraDayRate)         body.extraDayRate         = Number(form.extraDayRate);
       if (form.notes)            body.notes            = form.notes.trim();
       await post('/trucks', body);
       onCreated();
@@ -189,10 +190,11 @@ function AddTruckModal({ onClose, onCreated }) {
             <Field label="Make" value={form.make} onChange={set('make')} placeholder="Isuzu" />
             <Field label="Model" value={form.model} onChange={set('model')} placeholder="FRR" />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field label="Odometer (km)" type="number" value={form.odometerKm} onChange={set('odometerKm')} placeholder="0" />
-            <Field label="Cost / km (KES)" type="number" value={form.defaultCostPerKm} onChange={set('defaultCostPerKm')} placeholder="50" />
-            <Field label="Fixed daily (KES)" type="number" value={form.fixedDailyCost} onChange={set('fixedDailyCost')} placeholder="8000" />
+            <Field label="Fuel efficiency (km/L)" type="number" value={form.fuelEfficiencyKmPerL} onChange={set('fuelEfficiencyKmPerL')} placeholder="4" />
+            <Field label="Daily rate (KES)" type="number" value={form.dailyRate} onChange={set('dailyRate')} placeholder="9000" />
+            <Field label="Extra day rate (KES)" type="number" value={form.extraDayRate} onChange={set('extraDayRate')} placeholder="5000" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>

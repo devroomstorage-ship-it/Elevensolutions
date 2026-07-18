@@ -224,36 +224,60 @@ router.post('/:id/calculate-route', plannerOrAbove, async (req, res) => {
   }
 });
 
-// POST /api/journeys/:id/calculate-cost — run the costing model, upsert journey_costs
+// POST /api/journeys/:id/calculate-cost — run the costing model, upsert journey_costs.
+// Fuel-based model: fuel (billable km ÷ truck km/L × global fuel price)
+// + daily rate + extra days × extra-day rate + extras. Round trip by default.
 router.post('/:id/calculate-cost', plannerOrAbove, async (req, res) => {
   const { rows } = await query(`
-    SELECT j.*, t.default_cost_per_km, t.fixed_daily_cost
+    SELECT j.*, t.fuel_efficiency_km_per_l, t.daily_rate, t.extra_day_rate
       FROM journeys j JOIN trucks t ON j.truck_id = t.id
      WHERE j.id = $1
   `, [req.params.id]);
   if (!rows.length) return res.status(404).json({ error: 'Journey not found' });
   const journey = rows[0];
 
-  const { extraCharges = 0, manualAdjustment = 0, days = 1, routeType = null, distanceKm } = req.body;
+  if (!Number(journey.fuel_efficiency_km_per_l)) {
+    return res.status(400).json({
+      error: "This truck has no fuel efficiency set. Add km-per-litre and daily rate on its Fleet page first.",
+    });
+  }
+
+  // Global fuel price — set from Settings → Pricing.
+  const { rows: fp } = await query(
+    "SELECT value FROM site_settings WHERE key = 'fuel_price_per_litre'"
+  );
+  const fuelPricePerL = Number(fp[0]?.value) || 200;
+
+  const { extraCharges = 0, manualAdjustment = 0, days = 1, roundTrip = true, routeType = null, distanceKm } = req.body;
 
   const breakdown = calculateJourneyCost({
     distanceKm: distanceKm != null ? distanceKm : journey.distance_km,
-    costPerKm: journey.default_cost_per_km,
-    fixedDailyCost: journey.fixed_daily_cost,
+    fuelEfficiencyKmPerL: journey.fuel_efficiency_km_per_l,
+    fuelPricePerL,
+    dailyRate: journey.daily_rate,
+    extraDayRate: journey.extra_day_rate,
     days,
+    roundTrip,
     extraCharges,
     manualAdjustment,
   });
 
   const { rows: cost } = await query(`
     INSERT INTO journey_costs
-      (journey_id, distance_km, cost_per_km, fixed_daily_cost, days,
+      (journey_id, distance_km, billable_km, round_trip,
+       fuel_efficiency_km_per_l, fuel_price_per_l, fuel_cost,
+       daily_rate, extra_day_rate, days,
        extra_charges, manual_adjustment, estimated_cost, route_type, calculated_by)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
     ON CONFLICT (journey_id) DO UPDATE SET
       distance_km = EXCLUDED.distance_km,
-      cost_per_km = EXCLUDED.cost_per_km,
-      fixed_daily_cost = EXCLUDED.fixed_daily_cost,
+      billable_km = EXCLUDED.billable_km,
+      round_trip = EXCLUDED.round_trip,
+      fuel_efficiency_km_per_l = EXCLUDED.fuel_efficiency_km_per_l,
+      fuel_price_per_l = EXCLUDED.fuel_price_per_l,
+      fuel_cost = EXCLUDED.fuel_cost,
+      daily_rate = EXCLUDED.daily_rate,
+      extra_day_rate = EXCLUDED.extra_day_rate,
       days = EXCLUDED.days,
       extra_charges = EXCLUDED.extra_charges,
       manual_adjustment = EXCLUDED.manual_adjustment,
@@ -263,7 +287,9 @@ router.post('/:id/calculate-cost', plannerOrAbove, async (req, res) => {
       updated_at = NOW()
     RETURNING *
   `, [
-    journey.id, breakdown.distanceKm, breakdown.costPerKm, breakdown.fixedDailyCost, breakdown.days,
+    journey.id, breakdown.distanceKm, breakdown.billableKm, breakdown.roundTrip,
+    breakdown.fuelEfficiencyKmPerL, breakdown.fuelPricePerL, breakdown.fuelCost,
+    breakdown.dailyRate, breakdown.extraDayRate, breakdown.days,
     breakdown.extraCharges, breakdown.manualAdjustment, breakdown.estimatedCost, routeType, req.user.id,
   ]);
 

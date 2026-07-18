@@ -127,8 +127,23 @@ export default function JourneyDetailPage() {
             <h2 className="text-sm font-semibold text-gray-900 mb-3">Cost breakdown</h2>
             {c ? (
               <div className="text-sm space-y-1.5">
-                <Line k={`Distance (${c.distance_km} km × ${fmtKES(c.cost_per_km)})`} v={fmtKES(Number(c.distance_km) * Number(c.cost_per_km))} />
-                <Line k={`Fixed daily × ${c.days}`} v={fmtKES(Number(c.fixed_daily_cost) * Number(c.days))} />
+                {c.fuel_cost != null ? (
+                  <>
+                    <Line k={`Fuel — ${c.billable_km} km${c.round_trip ? ' (round trip)' : ''} ÷ ${Number(c.fuel_efficiency_km_per_l)} km/L × ${fmtKES(c.fuel_price_per_l)}/L`}
+                      v={fmtKES(c.fuel_cost)} />
+                    <Line k="Day rate" v={fmtKES(c.daily_rate)} />
+                    {Number(c.days) > 1 && (
+                      <Line k={`Extra days (${Number(c.days) - 1} × ${fmtKES(c.extra_day_rate)})`}
+                        v={fmtKES((Number(c.days) - 1) * Number(c.extra_day_rate))} />
+                    )}
+                  </>
+                ) : (
+                  // Legacy per-km breakdown (rows calculated before the fuel model)
+                  <>
+                    <Line k={`Distance (${c.distance_km} km × ${fmtKES(c.cost_per_km)})`} v={fmtKES(Number(c.distance_km) * Number(c.cost_per_km))} />
+                    <Line k={`Fixed daily × ${c.days}`} v={fmtKES(Number(c.fixed_daily_cost) * Number(c.days))} />
+                  </>
+                )}
                 <Line k="Extra charges" v={fmtKES(c.extra_charges)} />
                 <Line k="Manual adjustment" v={fmtKES(c.manual_adjustment)} />
                 <div className="border-t border-gray-100 pt-2 mt-2">
