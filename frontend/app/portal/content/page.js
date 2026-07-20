@@ -17,7 +17,7 @@ export default function ContentPage() {
       <main className="flex-1 overflow-y-auto">
         <div className="bg-white border-b border-gray-100 px-6 py-4 sticky top-0 z-10 flex justify-between items-center">
           <h1 className="text-base font-semibold text-gray-900">Website content</h1>
-          <a href="/" target="_blank" rel="noreferrer" className="text-xs text-[#E8620A] hover:underline">View live site ↗</a>
+          <a href="/" target="_blank" rel="noreferrer" className="text-xs text-[#B060A0] hover:underline">View live site ↗</a>
         </div>
 
         <div className="px-6 pt-4">
@@ -25,7 +25,7 @@ export default function ContentPage() {
             {['settings', 'services', 'sections'].map((t) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`px-4 py-2 text-sm capitalize border-b-2 -mb-px transition-colors ${
-                  tab === t ? 'border-[#E8620A] text-gray-900 font-medium' : 'border-transparent text-gray-400 hover:text-gray-600'
+                  tab === t ? 'border-[#B060A0] text-gray-900 font-medium' : 'border-transparent text-gray-400 hover:text-gray-600'
                 }`}>
                 {t}
               </button>
@@ -84,7 +84,7 @@ function SettingsEditor({ settings, onSaved }) {
         </div>
       ))}
       <button onClick={save} disabled={saving}
-        className="bg-[#E8620A] hover:bg-[#F7813B] disabled:opacity-50 text-white text-sm font-medium px-5 py-2.5 rounded-md">
+        className="bg-[#B060A0] hover:bg-[#C176B4] disabled:opacity-50 text-white text-sm font-medium px-5 py-2.5 rounded-md">
         {saving ? 'Saving…' : 'Save settings'}
       </button>
     </div>
@@ -140,7 +140,7 @@ function ServiceCard({ svc, onSaved }) {
       <textarea value={form.features} onChange={set('features')} rows={4} placeholder="One feature per line"
         className="mt-3 w-full text-sm border border-gray-200 rounded-md px-3 py-2 resize-none font-mono text-xs" />
       <button onClick={save} disabled={saving}
-        className="mt-3 bg-[#E8620A] hover:bg-[#F7813B] disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-md">
+        className="mt-3 bg-[#B060A0] hover:bg-[#C176B4] disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-md">
         {saving ? 'Saving…' : 'Save'}
       </button>
     </div>
@@ -174,7 +174,7 @@ function SectionCard({ sec, onSaved }) {
       <input value={form.subheading} onChange={set('subheading')} placeholder="Subheading"
         className="w-full text-sm border border-gray-200 rounded-md px-3 py-2" />
       <button onClick={save} disabled={saving}
-        className="mt-3 bg-[#E8620A] hover:bg-[#F7813B] disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-md">
+        className="mt-3 bg-[#B060A0] hover:bg-[#C176B4] disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-md">
         {saving ? 'Saving…' : 'Save'}
       </button>
     </div>

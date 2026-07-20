@@ -26,7 +26,7 @@ export default function DashboardPage() {
             <h1 className="text-base font-semibold text-gray-900">Operations Overview</h1>
             <p className="text-xs text-gray-500 mt-0.5">{new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</p>
           </div>
-          <span className="bg-orange-50 text-[#E8620A] text-xs font-medium px-3 py-1 rounded-full">
+          <span className="bg-[#F5EEF7] text-[#B060A0] text-xs font-medium px-3 py-1 rounded-full">
             {data?.openInvoices?.count || 0} open invoices
           </span>
         </div>

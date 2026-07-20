@@ -45,7 +45,7 @@ export default function DriversPage() {
         <div className="bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
           <h1 className="text-base font-semibold text-gray-900">Drivers — {drivers.length}</h1>
           <button onClick={() => setShowAdd(true)}
-            className="bg-[#E8620A] hover:bg-[#F7813B] text-white text-xs font-medium px-4 py-2 rounded-md transition-colors">
+            className="bg-[#B060A0] hover:bg-[#C176B4] text-white text-xs font-medium px-4 py-2 rounded-md transition-colors">
             + Add Driver
           </button>
         </div>
@@ -54,7 +54,7 @@ export default function DriversPage() {
           <input
             value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Search drivers…"
-            className="mb-5 w-full max-w-sm text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#E8620A]/40"
+            className="mb-5 w-full max-w-sm text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#B060A0]/40"
           />
 
           {loading ? (
@@ -91,7 +91,7 @@ export default function DriversPage() {
                           </span>
                         </td>
                         <td className="p-3 text-right">
-                          <a href={`/portal/drivers/${d.id}`} className="text-[#E8620A] hover:underline text-xs font-medium">View</a>
+                          <a href={`/portal/drivers/${d.id}`} className="text-[#B060A0] hover:underline text-xs font-medium">View</a>
                         </td>
                       </tr>
                     );
@@ -160,7 +160,7 @@ function AddDriverModal({ trucks, onClose, onCreated }) {
         <div className="flex justify-end gap-2 mt-5">
           <button onClick={onClose} className="text-xs text-gray-500 px-4 py-2">Cancel</button>
           <button onClick={submit} disabled={saving}
-            className="bg-[#E8620A] hover:bg-[#F7813B] disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-md">
+            className="bg-[#B060A0] hover:bg-[#C176B4] disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-md">
             {saving ? 'Saving…' : 'Create Driver'}
           </button>
         </div>
@@ -174,7 +174,7 @@ function Field({ label, value, onChange, type = 'text' }) {
     <div>
       <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
       <input type={type} value={value} onChange={onChange}
-        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#E8620A]/40" />
+        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#B060A0]/40" />
     </div>
   );
 }

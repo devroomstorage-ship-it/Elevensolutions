@@ -55,7 +55,7 @@ export default function AccountInvoicesPage() {
                       </span>
                     </td>
                     <td className="p-3 text-right">
-                      <a href={`/account/invoices/${inv.id}`} className="text-[#E8620A] hover:underline text-xs font-medium">View</a>
+                      <a href={`/account/invoices/${inv.id}`} className="text-[#B060A0] hover:underline text-xs font-medium">View</a>
                     </td>
                   </tr>
                 ))}

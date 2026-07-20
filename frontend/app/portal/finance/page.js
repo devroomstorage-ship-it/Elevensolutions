@@ -64,7 +64,7 @@ export default function FinancePage() {
                 {qb.expired ? 'Token expired' : 'Connected'}
               </p>
             ) : (
-              <a href={`${BASE}/quickbooks/connect`} className="inline-block mt-1 text-sm font-semibold text-[#E8620A] hover:underline">Connect →</a>
+              <a href={`${BASE}/quickbooks/connect`} className="inline-block mt-1 text-sm font-semibold text-[#B060A0] hover:underline">Connect →</a>
             )}
             {qb?.lastSync && <p className="text-[10px] text-gray-400 mt-1">Last sync {new Date(qb.lastSync).toLocaleString()}</p>}
           </div>
@@ -91,7 +91,7 @@ export default function FinancePage() {
                     <td className="text-gray-400">{new Date(l.created_at).toLocaleString()}</td>
                     <td className="text-right">
                       <button onClick={() => retry(l.id)} disabled={retrying === l.id}
-                        className="text-xs font-medium text-[#E8620A] hover:underline disabled:opacity-40">
+                        className="text-xs font-medium text-[#B060A0] hover:underline disabled:opacity-40">
                         {retrying === l.id ? 'Retrying…' : 'Retry'}
                       </button>
                     </td>
@@ -115,7 +115,7 @@ export default function FinancePage() {
                 const prof = Number(p.profit || 0);
                 return (
                   <tr key={t.id} className="border-t border-gray-100 hover:bg-gray-50">
-                    <td className="py-2"><a href={`/portal/fleet/${t.id}`} className="text-[#E8620A] hover:underline">{t.registration}</a> <span className="text-gray-400">{t.name}</span></td>
+                    <td className="py-2"><a href={`/portal/fleet/${t.id}`} className="text-[#B060A0] hover:underline">{t.registration}</a> <span className="text-gray-400">{t.name}</span></td>
                     <td>{p.total_journeys ?? 0}</td>
                     <td>{Number(p.total_distance_km || 0).toLocaleString()} km</td>
                     <td>{fmtKES(p.total_revenue)}</td>

@@ -60,7 +60,7 @@ export default function UsersPage() {
         <div className="bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
           <h1 className="text-base font-semibold text-gray-900">Users & Roles</h1>
           <button onClick={() => setShow(true)}
-            className="bg-[#E8620A] hover:bg-[#F7813B] text-white text-xs font-medium px-4 py-2 rounded-md transition-colors">
+            className="bg-[#B060A0] hover:bg-[#C176B4] text-white text-xs font-medium px-4 py-2 rounded-md transition-colors">
             + Add User
           </button>
         </div>
@@ -77,18 +77,18 @@ export default function UsersPage() {
                 <div className="col-span-2">
                   <label className="block text-xs text-gray-500 mb-1">Full Name *</label>
                   <input type="text" required value={form.fullName} onChange={e=>setForm(p=>({...p,fullName:e.target.value}))}
-                    className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#E8620A]" />
+                    className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#B060A0]" />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Work Email *</label>
                   <input type="email" required value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))}
                     placeholder="name@elevensolutions.co.ke"
-                    className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#E8620A]" />
+                    className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#B060A0]" />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Role *</label>
                   <select value={form.role} onChange={e=>setForm(p=>({...p,role:e.target.value}))}
-                    className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#E8620A]">
+                    className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#B060A0]">
                     {ROLES.map(r => <option key={r} value={r}>{r.replace('_',' ')}</option>)}
                   </select>
                 </div>
@@ -97,14 +97,14 @@ export default function UsersPage() {
                   <input type="password" required minLength={8} value={form.password}
                     onChange={e=>setForm(p=>({...p,password:e.target.value}))}
                     placeholder="Min. 8 characters"
-                    className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#E8620A]" />
+                    className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#B060A0]" />
                   <p className="text-[10px] text-gray-400 mt-1">The user will be prompted to change this on first login.</p>
                 </div>
               </div>
               {error && <p className="text-red-600 text-xs mt-2 bg-red-50 rounded p-2">{error}</p>}
               <div className="flex gap-2 mt-4">
                 <button type="submit" disabled={saving}
-                  className="bg-[#E8620A] hover:bg-[#F7813B] disabled:opacity-50 text-white text-xs font-medium px-5 py-2 rounded-md">
+                  className="bg-[#B060A0] hover:bg-[#C176B4] disabled:opacity-50 text-white text-xs font-medium px-5 py-2 rounded-md">
                   {saving ? 'Creating…' : 'Create Account'}
                 </button>
                 <button type="button" onClick={() => setShow(false)}
@@ -132,8 +132,8 @@ export default function UsersPage() {
                   <tr key={u.id} className="hover:bg-gray-50/50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-[#E8620A]/10 flex items-center justify-center flex-shrink-0">
-                          <span className="text-[#E8620A] text-[10px] font-bold">{u.full_name?.charAt(0)}</span>
+                        <div className="w-7 h-7 rounded-full bg-[#B060A0]/10 flex items-center justify-center flex-shrink-0">
+                          <span className="text-[#B060A0] text-[10px] font-bold">{u.full_name?.charAt(0)}</span>
                         </div>
                         <span className="font-medium text-gray-800">{u.full_name}</span>
                       </div>

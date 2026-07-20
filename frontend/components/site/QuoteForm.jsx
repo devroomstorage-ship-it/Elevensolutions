@@ -1,15 +1,21 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { CARGO_TYPES, EAST_AFRICA_PICKUP_POINTS } from '@/lib/quoteOptions';
+import { CARGO_TYPES } from '@/lib/quoteOptions';
 import { normalizeDisplayPhone, telHref } from '@/lib/phone';
+import PlacesAutocomplete from '@/components/admin/PlacesAutocomplete';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
+// Format in LOCAL time — toISOString() shifts to UTC, which for timezones
+// east of UTC (Kenya is UTC+3) turns "tomorrow" back into "today" and makes
+// the prefilled date fail the input's own min= check, silently blocking submit.
 function tomorrowISODate() {
-  const date = new Date();
-  date.setDate(date.getDate() + 1);
-  date.setHours(0, 0, 0, 0);
-  return date.toISOString().slice(0, 10);
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 export default function QuoteForm({ settings }) {
@@ -26,7 +32,28 @@ export default function QuoteForm({ settings }) {
     notes: '',
   });
   const [state, setState] = useState({ status: 'idle', message: '', reference: '' });
+  // Coordinates arrive only when the customer picks a Google suggestion.
+  const [coords, setCoords] = useState({ pickupLat: null, pickupLng: null, dropoffLat: null, dropoffLng: null });
+  const [route, setRoute] = useState({ status: 'idle', distanceKm: null, durationMin: null, error: '' });
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const canCalcRoute = coords.pickupLat != null && coords.dropoffLat != null;
+
+  const calcRoute = async () => {
+    setRoute({ status: 'loading', distanceKm: null, durationMin: null, error: '' });
+    try {
+      const res = await fetch(`${BASE}/public/route`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(coords),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not calculate the route.');
+      setRoute({ status: 'done', distanceKm: data.distanceKm, durationMin: data.durationMin, error: '' });
+    } catch (err) {
+      setRoute({ status: 'error', distanceKm: null, durationMin: null, error: err.message });
+    }
+  };
 
   const phones = [settings?.phone_1, settings?.phone_2, settings?.phone_3]
     .filter(Boolean)
@@ -49,6 +76,11 @@ export default function QuoteForm({ settings }) {
 
     if (!form.pickupDate || form.pickupDate < minPickupDate) {
       setState({ status: 'error', message: 'Pickup date must be after today.', reference: '' });
+      return;
+    }
+
+    if (!form.origin.trim() || !form.destination.trim()) {
+      setState({ status: 'error', message: 'Enter both the pickup location and the drop-off destination.', reference: '' });
       return;
     }
 
@@ -122,13 +154,49 @@ export default function QuoteForm({ settings }) {
                 min={minPickupDate}
                 required
               />
-              <SelectField label="Pickup point" value={form.origin} onChange={set('origin')} required>
-                <option value="">Select pickup point</option>
-                {EAST_AFRICA_PICKUP_POINTS.map((point) => (
-                  <option key={point} value={point}>{point}</option>
-                ))}
-              </SelectField>
-              <Field label="Drop-off / destination" value={form.destination} onChange={set('destination')} required />
+              <PlacesAutocomplete
+                label="Pickup location *"
+                value={form.origin}
+                onChange={(v) => {
+                  setForm((f) => ({ ...f, origin: v }));
+                  setCoords((c) => ({ ...c, pickupLat: null, pickupLng: null }));
+                  setRoute({ status: 'idle', distanceKm: null, durationMin: null, error: '' });
+                }}
+                onSelect={(s) => {
+                  setForm((f) => ({ ...f, origin: s.address }));
+                  setCoords((c) => ({ ...c, pickupLat: s.lat, pickupLng: s.lng }));
+                }}
+              />
+              <PlacesAutocomplete
+                label="Drop-off / destination *"
+                value={form.destination}
+                onChange={(v) => {
+                  setForm((f) => ({ ...f, destination: v }));
+                  setCoords((c) => ({ ...c, dropoffLat: null, dropoffLng: null }));
+                  setRoute({ status: 'idle', distanceKm: null, durationMin: null, error: '' });
+                }}
+                onSelect={(s) => {
+                  setForm((f) => ({ ...f, destination: s.address }));
+                  setCoords((c) => ({ ...c, dropoffLat: s.lat, dropoffLng: s.lng }));
+                }}
+              />
+              {canCalcRoute && (
+                <div className="sm:col-span-2 flex items-center gap-3 flex-wrap">
+                  <button type="button" onClick={calcRoute} disabled={route.status === 'loading'}
+                    className="text-sm font-medium px-4 py-2 rounded-full border border-[var(--plum-700)] text-[var(--plum-700)] hover:bg-[var(--paper)] disabled:opacity-50 transition-colors">
+                    {route.status === 'loading' ? 'Calculating…' : '📍 Calculate route'}
+                  </button>
+                  {route.status === 'done' && (
+                    <p className="text-sm text-[var(--ink)]">
+                      ≈ <strong>{route.distanceKm} km</strong>
+                      {route.durationMin ? ` · about ${Math.floor(route.durationMin / 60)}h ${route.durationMin % 60}m drive` : ''}
+                    </p>
+                  )}
+                  {route.status === 'error' && (
+                    <p className="text-sm text-red-600">{route.error}</p>
+                  )}
+                </div>
+              )}
               <SelectField label="Cargo type" value={form.cargoType} onChange={set('cargoType')} required>
                 <option value="">Select cargo type</option>
                 {CARGO_TYPES.map((type) => (

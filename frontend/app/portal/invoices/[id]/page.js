@@ -98,7 +98,7 @@ export default function InvoiceDetailPage() {
               {invoice.status}
             </span>
             <button onClick={downloadPdf}
-              className="text-xs bg-[#0F1E2E] hover:bg-[#1a3556] text-white px-3 py-1.5 rounded-md">
+              className="text-xs bg-[#3A2150] hover:bg-[#503070] text-white px-3 py-1.5 rounded-md">
               Download PDF
             </button>
           </div>
@@ -135,11 +135,11 @@ export default function InvoiceDetailPage() {
               onChange={(e) => setEtr(e.target.value)}
               placeholder="e.g. KRA-ETR-8823-4471-2091"
               maxLength={64}
-              className="flex-1 text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#E8620A]/40" />
+              className="flex-1 text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#B060A0]/40" />
             <button
               onClick={saveEtr}
               disabled={!etrChanged || savingEtr}
-              className="bg-[#E8620A] hover:bg-[#F7813B] disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-md whitespace-nowrap">
+              className="bg-[#B060A0] hover:bg-[#C176B4] disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-md whitespace-nowrap">
               {savingEtr ? 'Saving…' : (invoice.kra_etr_code ? 'Update' : 'Save')}
             </button>
           </div>

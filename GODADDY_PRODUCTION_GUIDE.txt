@@ -1,0 +1,286 @@
+================================================================================
+ELEVEN SOLUTIONS PLATFORM — GODADDY PRODUCTION DEPLOYMENT GUIDE
+================================================================================
+Written: July 2026. Answers, in order: can we run Docker on GoDaddy, what
+happens to the database, how to keep private data out of the git repo, and
+how authentication / OTP should work. Then a step-by-step deployment plan.
+
+
+--------------------------------------------------------------------------------
+1. CAN WE RUN DOCKER CONTAINERS ON GODADDY?
+--------------------------------------------------------------------------------
+Yes — but only on the right GoDaddy product.
+
+  * GoDaddy SHARED HOSTING (cPanel/"Web Hosting" plans): NO. Shared hosting
+    cannot run Docker, cannot run a persistent Node.js server the way this
+    app needs, and only offers MySQL (not Postgres). Do not buy this for
+    the platform.
+
+  * GoDaddy VPS (self-managed Virtual Private Server): YES. You get a full
+    Linux virtual machine with root access. You install Docker yourself and
+    run the exact same docker-compose.yml we use today (frontend, backend,
+    postgres — three containers). This is the product to buy.
+
+    Recommended spec: Ubuntu 22.04 or newer, at least 2 CPU / 4 GB RAM /
+    40 GB+ NVMe storage. The whole stack currently fits comfortably in
+    under 2 GB of RAM, so 4 GB leaves headroom for traffic growth and
+    build steps. (Render's free tier only gave us 512 MB per service —
+    a small VPS is already a big upgrade.)
+
+  * The domain (elevensolutions.co.ke) stays wherever it is registered;
+    you just point its DNS A record at the VPS IP (Section 6).
+
+Key difference from Render: nothing is automatic anymore. Render gave us
+push-to-deploy, managed Postgres, and TLS for free; on a VPS we own all of
+that ourselves. The steps in Section 6 cover each piece.
+
+
+--------------------------------------------------------------------------------
+1b. ALTERNATIVE (RECOMMENDED): HOST ON AWS, KEEP THE DOMAIN AT GODADDY
+--------------------------------------------------------------------------------
+Yes, this works — and it is the setup we'd actually recommend. Domain
+registration and hosting are completely independent: the domain stays
+registered at GoDaddy, and GoDaddy's DNS manager simply points at whatever
+IP address hosts the app. Nothing about the app or this guide changes —
+only WHERE the Linux server lives.
+
+  Two AWS options, both run our docker-compose exactly like a VPS would:
+
+  * AWS LIGHTSAIL (the simple one — best fit for us):
+      - Lightsail is AWS's fixed-price VPS product. A 4 GB RAM / 2 vCPU /
+        80 GB SSD instance is a flat ~US$24/month, bandwidth included.
+      - A STATIC IP is included free — attach it to the instance and use
+        that IP in GoDaddy DNS. (Without a static IP the address changes
+        if the instance is ever stopped, silently breaking the site.)
+      - Firewall is configured in the Lightsail console: open only
+        22 (SSH), 80 and 443.
+
+  * AWS EC2 (the classic one — more knobs, more billing complexity):
+      - t3.medium (4 GB) ≈ US$30/month on-demand, less with a savings
+        plan. Bandwidth billed separately.
+      - You MUST allocate an ELASTIC IP and associate it with the
+        instance — an EC2 public IP changes on stop/start otherwise.
+      - Open 22/80/443 in the instance's Security Group.
+
+  Region: pick af-south-1 (Cape Town) for the lowest latency from Kenya
+  (~50–100 ms from Nairobi); eu-west-1 / eu-central-1 are fine fallbacks
+  (~130–180 ms) and slightly cheaper. For a staff portal either is fine.
+
+  Connecting it to GoDaddy DNS (this replaces nothing else in Section 6):
+      GoDaddy → My Domains → elevensolutions.co.ke → Manage DNS
+      A record  @    → <the static/Elastic IP>     TTL 600
+      A record  www  → <the same IP>               TTL 600
+      Delete/ignore any "Parked" or "Forwarding" records GoDaddy added.
+
+  Every other step in this guide is identical on AWS: same Ubuntu + Docker
+  install, same .env for secrets, same Caddy/nginx + Let's Encrypt for
+  HTTPS, same nightly pg_dump backups (which can now go straight to an S3
+  bucket — a natural fit on AWS).
+
+  One deliberate non-recommendation: AWS RDS (managed Postgres) is not
+  worth it at our size — it adds ~US$15+/month for a database that fits
+  in a container on the same box. Revisit only if uptime requirements
+  grow beyond what a single server can honestly promise.
+
+
+--------------------------------------------------------------------------------
+2. THE DATABASE — STILL POSTGRES? HOW BIG? WHOSE DISK?
+--------------------------------------------------------------------------------
+Still Postgres, unchanged. The same postgres:16-alpine container from
+docker-compose.yml runs on the VPS, storing its data in a Docker volume on
+the VPS's own disk.
+
+  * Size: the platform's data is small. 13 trucks, ~14 drivers, and even
+    thousands of quotes/journeys/invoices per year is well under 100 MB.
+    With audit logs it will take years to reach 1–2 GB. Any VPS plan's
+    allocated disk (40 GB+) is far more than enough — you do NOT need a
+    separate database hosting service. Yes: use the space allocated by
+    the hosting plan, via the existing postgres_data Docker volume.
+
+  * The trade-off: on Render, backups/durability were (partly) their
+    problem; on a VPS they are entirely ours. Two rules:
+
+      1. NIGHTLY BACKUP (cron job on the VPS):
+         docker exec eleven_db pg_dump -U postgres eleven_solutions \
+           | gzip > /var/backups/eleven_$(date +%F).sql.gz
+         Keep ~14 days locally, and copy off-server (rclone to Backblaze
+         B2, AWS S3, or even a private Google Drive). Off-server matters:
+         if the VPS dies, backups sitting on the same VPS die with it.
+
+      2. TEST A RESTORE once a month. A backup you have never restored
+         is a hope, not a backup.
+
+  * Never expose Postgres to the internet. In the production compose file,
+    remove the "ports" mapping on the postgres service (or bind it to
+    127.0.0.1). Only the backend container needs to reach it, and it does
+    so over Docker's internal network.
+
+
+--------------------------------------------------------------------------------
+3. KEEPING PRIVATE DATA OUT OF THE GIT REPO ("masking" git vs prod)
+--------------------------------------------------------------------------------
+The rule that makes this simple: THE REPO HOLDS CODE; THE SERVER HOLDS
+SECRETS AND DATA. Anything secret or personal lives in exactly two places —
+environment variables on the server, and rows in the database — and never
+in a committed file.
+
+  a) SECRETS (passwords, JWT keys, API keys)
+     - Create a file called .env on the VPS next to docker-compose.yml.
+       It holds the real values: strong random JWT_SECRET and
+       JWT_REFRESH_SECRET, the real Postgres password, MAILTRAP_API_KEY,
+       GOOGLE_MAPS_SERVER_KEY, etc.
+     - .env is listed in .gitignore and is NEVER committed. The compose
+       file references the variables; git only ever sees the variable
+       names, not the values.
+     - The dev docker-compose.yml currently hardcodes dev secrets like
+       "dev_jwt_secret_change_in_production" — those are placeholders and
+       MUST be replaced by .env values in production.
+
+  b) PERSONAL DATA (drivers' ID numbers, phones — like migration 013)
+     - migration_013_real_fleet_import.sql currently contains the real
+       fleet roster and therefore real PII, committed to git. That was a
+       deliberate one-time trade-off to reach Render (no shell access).
+       Once it has been applied in production:
+         1. Replace the body of the file with a comment saying the import
+            ran (keep the same filename so the migrations table stays
+            consistent — migrate.js skips files it has already recorded).
+         2. Note: git HISTORY still contains the old version. That is
+            acceptable only while the repo is PRIVATE. If the repo ever
+            needs to go public, the history must be rewritten
+            (git filter-repo) first.
+     - Going forward, data enters production through the portal UI or a
+       direct psql session on the VPS — never through committed files.
+       To move data between environments use pg_dump/pg_restore, not git.
+     - On a VPS you finally have a shell, so the old Render constraint
+       ("no shell, so data has to ride in a migration") disappears.
+
+
+--------------------------------------------------------------------------------
+4. AUTHENTICATION — WHAT STAYS, WHAT CHANGES
+--------------------------------------------------------------------------------
+Nothing about hosting changes authentication. It is already built and
+hosting-agnostic:
+
+  * Identities live in the Postgres users table. Passwords are stored as
+    bcrypt hashes (cost 12) — never plaintext. This continues unchanged.
+  * Logins issue a short-lived JWT access token (~15 min) plus a 7-day
+    refresh token. Refresh tokens are stored HASHED in the refresh_tokens
+    table and are ROTATED on every use (old one deleted, new one issued),
+    so a stolen refresh token cannot be replayed quietly.
+  * Staff log in at /portal/login; invited clients at /account/login.
+    Role checks on every API route decide what each session can reach.
+
+The only production requirement: the site MUST be served over HTTPS
+(Section 6, reverse proxy + Let's Encrypt), because tokens travel in
+headers/cookies. Plain HTTP in production is not acceptable.
+
+
+--------------------------------------------------------------------------------
+5. OTP / TWO-FACTOR — DO WE NEED A THIRD PARTY?
+--------------------------------------------------------------------------------
+Short answer: NO third party is needed for the recommended approach.
+
+  OPTION A — AUTHENTICATOR APP (TOTP)         << RECOMMENDED for staff >>
+    How it works: the server generates a random secret once, shows it as
+    a QR code; the user scans it into Google Authenticator (or Authy,
+    Microsoft Authenticator). From then on the PHONE generates a 6-digit
+    code every 30 seconds from that shared secret (RFC 6238 standard).
+    Nothing is sent anywhere at login time — no SMS, no email — the server
+    just recomputes the code from its stored copy of the secret and
+    compares.
+      * Generated by: the otpauth library — ALREADY in the backend.
+      * Stored where: users.totp_secret column — ALREADY in the schema.
+        (Improvement for later: encrypt this column at the application
+        layer so a raw DB dump doesn't expose 2FA secrets.)
+      * Endpoints /api/auth/2fa/setup and /2fa/verify ALREADY exist, and
+        the login flow already accepts a totpCode when enabled.
+      * Cost: zero. Works offline. This feature is ~80% built — it mainly
+        needs the portal UI to turn it on per user, plus backup codes.
+
+  OPTION B — EMAIL OTP (one-time code by email)
+    Fine as a second factor for CLIENT accounts, or for password resets.
+    The codebase already contains the exact right pattern (the public
+    quote-tracking flow): generate a 6-digit code with Node's
+    crypto.randomInt, email it, store ONLY a hash of the code with a
+    10-minute expiry and single-use flag, compare hashes on submit.
+      * Needs no new service — it rides on the existing Mailtrap email
+        transport. Its weakness is exactly our known weak spot: if email
+        delivery hiccups, logins hiccup.
+
+  OPTION C — SMS OTP
+    The only option that truly requires a third party (Africa's Talking
+    is the usual choice in Kenya; Twilio also works). Costs per SMS and
+    adds an API dependency. Only worth adding if drivers/clients who
+    can't use email or an authenticator app must have 2FA. Skip for now.
+
+  Recommendation: finish Option A for staff (super_admin first), keep
+  Option B in the back pocket for client-account flows, defer Option C.
+  Codes are never stored in plaintext in any option: TOTP stores a secret
+  and computes codes; email OTP stores only a hash with an expiry.
+
+
+--------------------------------------------------------------------------------
+6. STEP-BY-STEP: TAKING THE PLATFORM LIVE ON A GODADDY VPS
+--------------------------------------------------------------------------------
+ 1. BUY the VPS: GoDaddy → Servers → VPS, self-managed, Ubuntu 22.04+,
+    ≥2 vCPU / 4 GB RAM / 40 GB NVMe.
+
+ 2. FIRST LOGIN & HARDENING (once):
+      - Add your SSH public key; disable password SSH login.
+      - ufw allow 22,80,443/tcp; ufw enable   (firewall: web + ssh only)
+      - apt install fail2ban unattended-upgrades
+      - Create a non-root deploy user with docker group membership.
+
+ 3. INSTALL DOCKER: follow docs.docker.com/engine/install/ubuntu
+    (installs Docker Engine + the "docker compose" plugin).
+
+ 4. GET THE CODE: create a read-only GitHub deploy key on the VPS, then
+    git clone the private repo into e.g. /opt/elevensolutions.
+
+ 5. CREATE /opt/elevensolutions/.env (never committed) with the real
+    values: POSTGRES_PASSWORD, JWT_SECRET, JWT_REFRESH_SECRET (long
+    random strings — `openssl rand -hex 48`), MAILTRAP_API_TOKEN,
+    GOOGLE_MAPS_SERVER_KEY, NEXT_PUBLIC_API_URL=https://elevensolutions.co.ke/api,
+    CORS_ORIGINS=https://elevensolutions.co.ke, NODE_ENV=production.
+    Point docker-compose's environment entries at these variables.
+
+ 6. ADD A REVERSE PROXY + HTTPS: run Caddy (simplest) or nginx as a
+    fourth container. It listens on 80/443, gets a free Let's Encrypt
+    certificate automatically (Caddy renews it itself), and routes:
+        https://elevensolutions.co.ke/api/*  → backend:4000
+        https://elevensolutions.co.ke/*      → frontend:3000
+    Also: remove/localhost-bind the postgres "ports" mapping, and stop
+    publishing 3001/4000 publicly — only the proxy needs to be exposed.
+
+ 7. DNS (in GoDaddy's DNS manager): A record @ → VPS IP, A record www →
+    VPS IP. TTL 600. Wait for propagation, then first deploy:
+        docker compose build && docker compose up -d
+    Migrations run automatically when the backend starts (same as now).
+
+ 8. DEPLOY FLOW after that (no auto-deploy like Render):
+        ssh vps 'cd /opt/elevensolutions && git pull \
+          && docker compose build && docker compose up -d'
+    Optional later: a GitHub Action that runs this over SSH on every push
+    to main, restoring push-to-deploy behaviour.
+
+ 9. BACKUPS: install the nightly pg_dump cron from Section 2 plus rclone
+    to off-server storage. Do a restore drill after the first week.
+
+10. MONITORING (minimum viable): a free UptimeRobot check on
+    https://elevensolutions.co.ke/api/health (the backend /health route),
+    plus `docker compose logs -f` when investigating. Add disk-space
+    alerting (a full disk is the #1 self-hosted Postgres killer).
+
+MIGRATION DAY (Render → GoDaddy), in order:
+    a) Deploy the stack on the VPS (steps above) with an empty DB.
+    b) Take a final pg_dump from the Render database.
+    c) Restore it into the VPS Postgres (cat dump | docker exec -i
+       eleven_db psql -U postgres eleven_solutions).
+    d) Flip DNS to the VPS IP.
+    e) Keep Render alive for a few days as fallback, then shut it down
+       (remember: Render's free Postgres auto-deletes after 90 days
+       anyway — do not leave the only copy of the data there).
+
+================================================================================
+END
+================================================================================

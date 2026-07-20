@@ -4,7 +4,8 @@ const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const { query } = require('../db');
 const { normalizeInternationalPhone } = require('../services/phone');
-const { CARGO_TYPES, EAST_AFRICA_PICKUP_POINTS } = require('../constants/quoteOptions');
+const { CARGO_TYPES } = require('../constants/quoteOptions');
+const { getRoute } = require('../services/maps');
 const { createUniqueQuoteReference } = require('../utils/quoteReference');
 const { issueQuoteAccessToken, verifyQuoteAccessToken } = require('../utils/quoteAccessToken');
 const { sendQuoteReferenceSms, sendQuoteOtpSms } = require('../services/sms');
@@ -21,6 +22,12 @@ const otpLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   message: { error: 'Too many verification attempts. Please try again later.' },
+});
+
+const routeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { error: 'Too many route lookups. Please try again later.' },
 });
 
 function eastAfricaTodayISO() {
@@ -72,6 +79,35 @@ function bearerToken(req) {
   return String(req.query.token || '').trim();
 }
 
+// POST /api/public/route — distance/duration preview for the public quote form.
+// Coordinates only (supplied by Google Places autocomplete in the browser) —
+// no free-text geocoding here, so the public abuse surface stays small and
+// every repeated lane is served from google_route_cache for free.
+router.post('/route', routeLimiter, [
+  body('pickupLat').isFloat({ min: -90, max: 90 }),
+  body('pickupLng').isFloat({ min: -180, max: 180 }),
+  body('dropoffLat').isFloat({ min: -90, max: 90 }),
+  body('dropoffLng').isFloat({ min: -180, max: 180 }),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: 'Pick both locations from the suggestions to calculate the route.' });
+  }
+  if (!process.env.GOOGLE_MAPS_SERVER_KEY) {
+    return res.status(503).json({ error: 'Route calculation is not available right now.' });
+  }
+  try {
+    const r = await getRoute(
+      { lat: Number(req.body.pickupLat), lng: Number(req.body.pickupLng) },
+      { lat: Number(req.body.dropoffLat), lng: Number(req.body.dropoffLng) }
+    );
+    res.json({ distanceKm: r.distance_km, durationMin: r.duration_min });
+  } catch (err) {
+    console.error('Public route error:', err.message || err);
+    res.status(502).json({ error: 'Could not calculate the route for those points.' });
+  }
+});
+
 router.post('/quote', formLimiter, [
   body('companyName').notEmpty().trim().escape().isLength({ max: 255 }),
   body('contactEmail').isEmail().normalizeEmail(),
@@ -83,9 +119,7 @@ router.post('/quote', formLimiter, [
     .notEmpty().withMessage('Pickup date is required.')
     .custom(isDateAfterToday)
     .withMessage('Pickup date must be after today.'),
-  body('origin')
-    .notEmpty().withMessage('Pickup point is required.')
-    .isIn(EAST_AFRICA_PICKUP_POINTS).withMessage('Please select a valid pickup point.'),
+  body('origin').notEmpty().withMessage('Pickup point is required.').trim().escape().isLength({ max: 255 }),
   body('destination').notEmpty().trim().escape().isLength({ max: 255 }),
   body('cargoType')
     .notEmpty().withMessage('Cargo type is required.')
@@ -131,7 +165,7 @@ router.post('/quote', formLimiter, [
       `INSERT INTO quotations
          (reference, client_id, company_name, contact_email, contact_phone,
           requested_pickup_date, origin, destination, cargo_type, weight_tons, notes, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'received')
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending')
        RETURNING *`,
       [reference, clientId, companyName, contactEmail, contactPhone,
        pickupDate, origin, destination, cargoType, weightTons || null, notes]

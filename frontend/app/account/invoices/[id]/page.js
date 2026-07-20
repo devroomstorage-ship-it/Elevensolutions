@@ -62,7 +62,7 @@ export default function AccountInvoiceDetailPage() {
               {invoice.status}
             </span>
             <button onClick={downloadPdf} disabled={downloading}
-              className="text-xs bg-[#0F1E2E] hover:bg-[#1a3556] disabled:opacity-50 text-white px-3 py-1.5 rounded-md">
+              className="text-xs bg-[#3A2150] hover:bg-[#503070] disabled:opacity-50 text-white px-3 py-1.5 rounded-md">
               {downloading ? 'Preparing…' : 'Download PDF'}
             </button>
           </div>

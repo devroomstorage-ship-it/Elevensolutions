@@ -40,7 +40,7 @@ export default function FleetPage() {
         <div className="bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
           <h1 className="text-base font-semibold text-gray-900">Fleet — {trucks.length} Trucks</h1>
           <button onClick={() => setShowAdd(true)}
-            className="bg-[#E8620A] hover:bg-[#F7813B] text-white text-xs font-medium px-4 py-2 rounded-md transition-colors">
+            className="bg-[#B060A0] hover:bg-[#C176B4] text-white text-xs font-medium px-4 py-2 rounded-md transition-colors">
             + Add Truck
           </button>
         </div>
@@ -50,7 +50,7 @@ export default function FleetPage() {
             {filters.map(f => (
               <button key={f} onClick={() => setFilter(f)}
                 className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors capitalize border ${
-                  filter === f ? 'bg-[#0F1E2E] text-white border-[#0F1E2E]' : 'border-gray-200 text-gray-600 hover:border-gray-400'
+                  filter === f ? 'bg-[#3A2150] text-white border-[#3A2150]' : 'border-gray-200 text-gray-600 hover:border-gray-400'
                 }`}>
                 {f.replace('_', ' ')}
               </button>
@@ -63,7 +63,7 @@ export default function FleetPage() {
             <div className="text-center py-16 text-gray-400">
               <p className="text-sm">No trucks yet.</p>
               <button onClick={() => setShowAdd(true)}
-                className="mt-3 text-[#E8620A] hover:underline text-xs font-medium">
+                className="mt-3 text-[#B060A0] hover:underline text-xs font-medium">
                 Add your first truck →
               </button>
             </div>
@@ -73,7 +73,7 @@ export default function FleetPage() {
                 <div key={truck.id} className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-sm transition-shadow">
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <a href={`/portal/fleet/${truck.id}`} className="font-semibold text-gray-900 text-sm hover:text-[#E8620A] hover:underline">
+                      <a href={`/portal/fleet/${truck.id}`} className="font-semibold text-gray-900 text-sm hover:text-[#B060A0] hover:underline">
                         {truck.name}
                       </a>
                       <p className="text-xs text-gray-400 font-mono mt-0.5">{truck.registration}</p>
@@ -92,7 +92,7 @@ export default function FleetPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <select value={truck.status} onChange={e => updateStatus(truck.id, e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-md text-xs px-2 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-[#E8620A]">
+                      className="flex-1 border border-gray-200 rounded-md text-xs px-2 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-[#B060A0]">
                       <option value="available">Set Available</option>
                       <option value="on_route">Set On Route</option>
                       <option value="maintenance">Set Maintenance</option>
@@ -100,7 +100,7 @@ export default function FleetPage() {
                       <option value="loading">Set Loading</option>
                     </select>
                     <a href={`/portal/fleet/${truck.id}`}
-                      className="text-xs text-[#E8620A] hover:underline font-medium whitespace-nowrap px-1">
+                      className="text-xs text-[#B060A0] hover:underline font-medium whitespace-nowrap px-1">
                       Edit →
                     </a>
                   </div>
@@ -206,7 +206,7 @@ function AddTruckModal({ onClose, onCreated }) {
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="text-xs text-gray-500 px-4 py-2">Cancel</button>
             <button type="submit" disabled={saving}
-              className="bg-[#E8620A] hover:bg-[#F7813B] disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-md">
+              className="bg-[#B060A0] hover:bg-[#C176B4] disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-md">
               {saving ? 'Saving…' : 'Create Truck'}
             </button>
           </div>
@@ -221,7 +221,7 @@ function Field({ label, value, onChange, type = 'text', placeholder }) {
     <div>
       <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
       <input type={type} value={value} onChange={onChange} placeholder={placeholder}
-        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#E8620A]/40" />
+        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#B060A0]/40" />
     </div>
   );
 }

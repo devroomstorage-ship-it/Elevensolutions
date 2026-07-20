@@ -52,7 +52,7 @@ export default function AccountDashboardPage() {
 
 function Tile({ label, value, href }) {
   return (
-    <a href={href} className="block bg-white rounded-xl border border-gray-100 p-5 hover:border-[#E8620A]/40 transition-colors">
+    <a href={href} className="block bg-white rounded-xl border border-gray-100 p-5 hover:border-[#B060A0]/40 transition-colors">
       <p className="text-xs text-gray-500 mb-1">{label}</p>
       <p className="text-2xl font-semibold text-gray-900">{value}</p>
     </a>

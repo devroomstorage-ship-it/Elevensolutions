@@ -23,7 +23,7 @@ export default function SettingsPage() {
               className="bg-white border border-gray-100 rounded-xl p-5 hover:shadow-sm hover:border-gray-200 transition-all">
               <h2 className="text-sm font-semibold text-gray-900">{s.title}</h2>
               <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{s.desc}</p>
-              <p className="text-xs text-[#E8620A] mt-3 font-medium">Open →</p>
+              <p className="text-xs text-[#B060A0] mt-3 font-medium">Open →</p>
             </Link>
           ))}
         </div>

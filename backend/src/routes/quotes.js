@@ -4,6 +4,8 @@ const { query, withTransaction } = require('../db');
 const { authenticate, financeOrAdmin, plannerOrAbove, allStaff, auditLog } = require('../middleware/auth');
 const { sendQuoteEmail } = require('../services/email');
 const { generateQuotePDF } = require('../services/pdf');
+const { calculateJourneyCost } = require('../services/costing');
+const { getRoute, geocode } = require('../services/maps');
 
 const router = express.Router();
 router.use(authenticate);
@@ -187,6 +189,99 @@ router.post('/:id/convert', plannerOrAbove, [
 });
 
 // POST /api/quotes/:id/send — generate PDF and email to client
+// GET /api/quotes/:id/route-distance — auto-resolve the quote's own route
+// distance (geocode origin/destination + Google route, cache-backed) so the
+// price calculator's distance field can prefill without a click.
+router.get('/:id/route-distance', allStaff, async (req, res) => {
+  const { rows } = await query('SELECT origin, destination FROM quotations WHERE id = $1', [req.params.id]);
+  if (!rows.length) return res.status(404).json({ error: 'Quote not found' });
+  try {
+    const [o, d] = await Promise.all([geocode(rows[0].origin), geocode(rows[0].destination)]);
+    const route = await getRoute(o, d);
+    res.json({ distanceKm: route.distance_km, durationMin: route.duration_min });
+  } catch (err) {
+    res.status(400).json({ error: `Could not resolve the route automatically: ${err.message}`, allowManual: true });
+  }
+});
+
+// POST /api/quotes/:id/calculate-price — suggest a price for the quote using
+// the fuel-based costing engine (same maths as the journey planner):
+//   fuel (billable km ÷ truck km/L × global fuel price) + daily rate
+//   + extra days × extra-day rate + extras.
+// Distance comes from the request if supplied, otherwise it is geocoded and
+// routed via Google (cache-backed). The result is a SUGGESTION — the staff
+// member edits/saves the final amount separately via PATCH /:id.
+// allStaff (not financeOrAdmin): the workbench auto-shows the suggestion to
+// anyone who can view quotes; saving the amount / sending stays financeOrAdmin.
+router.post('/:id/calculate-price', allStaff, [
+  body('truckId').isUUID().withMessage('Pick a truck to price with.'),
+  body('days').optional({ checkFalsy: true }).isInt({ min: 1, max: 60 }),
+  body('roundTrip').optional().isBoolean(),
+  body('distanceKm').optional({ checkFalsy: true }).isFloat({ min: 0 }),
+  body('extraCharges').optional({ checkFalsy: true }).isFloat({ min: 0 }),
+  body('manualAdjustment').optional({ checkFalsy: true }).isFloat(),
+  // Per-quotation rate overrides — used for THIS calculation only, the
+  // truck's saved rates are not touched.
+  body('dailyRate').optional({ checkFalsy: true }).isFloat({ min: 0 }),
+  body('extraDayRate').optional({ checkFalsy: true }).isFloat({ min: 0 }),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: errors.array()[0].msg });
+
+  const { rows: qs } = await query('SELECT * FROM quotations WHERE id = $1', [req.params.id]);
+  if (!qs.length) return res.status(404).json({ error: 'Quote not found' });
+  const quote = qs[0];
+
+  const { rows: ts } = await query(
+    'SELECT registration, fuel_efficiency_km_per_l, daily_rate, extra_day_rate FROM trucks WHERE id = $1',
+    [req.body.truckId]
+  );
+  if (!ts.length) return res.status(404).json({ error: 'Truck not found' });
+  const truck = ts[0];
+  if (!Number(truck.fuel_efficiency_km_per_l)) {
+    return res.status(400).json({ error: `${truck.registration} has no fuel efficiency set — add its rates in Settings → Pricing first.` });
+  }
+
+  const { rows: fp } = await query("SELECT value FROM site_settings WHERE key = 'fuel_price_per_litre'");
+  const fuelPricePerL = Number(fp[0]?.value) || 200;
+
+  // Distance: manual value wins; otherwise geocode the quote's own route.
+  let distanceKm = req.body.distanceKm != null && req.body.distanceKm !== '' ? Number(req.body.distanceKm) : null;
+  if (distanceKm == null) {
+    try {
+      const [o, d] = await Promise.all([geocode(quote.origin), geocode(quote.destination)]);
+      const route = await getRoute(o, d);
+      distanceKm = route.distance_km;
+    } catch (err) {
+      return res.status(400).json({
+        error: `Could not calculate the route distance automatically (${err.message}). Enter the distance manually.`,
+        allowManual: true,
+      });
+    }
+  }
+
+  const breakdown = calculateJourneyCost({
+    distanceKm,
+    fuelEfficiencyKmPerL: truck.fuel_efficiency_km_per_l,
+    fuelPricePerL,
+    dailyRate: req.body.dailyRate != null && req.body.dailyRate !== '' ? req.body.dailyRate : truck.daily_rate,
+    extraDayRate: req.body.extraDayRate != null && req.body.extraDayRate !== '' ? req.body.extraDayRate : truck.extra_day_rate,
+    days: req.body.days || 1,
+    roundTrip: req.body.roundTrip !== false,
+    extraCharges: req.body.extraCharges || 0,
+    manualAdjustment: req.body.manualAdjustment || 0,
+  });
+
+  res.json({
+    truck: truck.registration,
+    breakdown,
+    overrides: {
+      dailyRate: req.body.dailyRate != null && req.body.dailyRate !== '',
+      extraDayRate: req.body.extraDayRate != null && req.body.extraDayRate !== '',
+    },
+  });
+});
+
 router.post('/:id/send', financeOrAdmin, async (req, res) => {
   const { rows } = await query(`${QUOTE_SELECT} WHERE q.id = $1`, [req.params.id]);
   if (!rows.length) return res.status(404).json({ error: 'Quote not found' });
@@ -196,11 +291,14 @@ router.post('/:id/send', financeOrAdmin, async (req, res) => {
   const recipientEmail = quote.client_email || quote.contact_email;
   if (!recipientEmail) return res.status(400).json({ error: 'No client email on record' });
 
+  // Optional personal note from staff, shown in the email body above the table.
+  const note = String(req.body.note || '').trim().slice(0, 1000);
+
   try {
     const pdfBuffer = await generateQuotePDF(quote);
-    await sendQuoteEmail(recipientEmail, quote.client_company_name || quote.company_name, quote, pdfBuffer);
+    await sendQuoteEmail(recipientEmail, quote.client_company_name || quote.company_name, quote, pdfBuffer, note);
     await query("UPDATE quotations SET status = 'sent', sent_at = NOW() WHERE id = $1", [quote.id]);
-    await auditLog(req.user.id, 'quote.sent', 'quotation', quote.id, { recipient: recipientEmail }, req.ip);
+    await auditLog(req.user.id, 'quote.sent', 'quotation', quote.id, { recipient: recipientEmail, note: note || undefined }, req.ip);
     res.json({ message: 'Quote emailed successfully', recipient: recipientEmail });
   } catch (err) {
     console.error('Quote send error:', err);

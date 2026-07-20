@@ -277,8 +277,21 @@ const callOnLine = `Call us on <strong>${COMPANY.phones.join('</strong> or <stro
 const footerLine = `${COMPANY.name} · ${COMPANY.address} · ${COMPANY.phones.join(' · ')} · ${COMPANY.emails[0]}`;
 
 // ─── Send: formal PDF quotation ───────────────────────────────────────────────
-async function sendQuoteEmail(to, companyName, quote, pdfBuffer) {
+// `note` is an optional staff-written message shown above the quote table.
+// HTML-escaped so a note can never inject markup into the email.
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/\n/g, '<br>');
+}
+
+async function sendQuoteEmail(to, companyName, quote, pdfBuffer, note = '') {
   const { from, replyTo } = await resolveFrom('quotes');
+  const noteBlock = note
+    ? `<div style="background:#FFF7ED;border-left:3px solid #E8620A;padding:12px 16px;margin:16px 0;">
+         <p style="color:#444;margin:0;font-size:14px;">${escapeHtml(note)}</p>
+       </div>`
+    : '';
   await sendEmail({
     to, from, replyTo,
     subject: `Quotation ${quote.reference} — ${COMPANY.name}`,
@@ -291,6 +304,7 @@ async function sendQuoteEmail(to, companyName, quote, pdfBuffer) {
         <div style="background:#fff;padding:28px;border:1px solid #e5e7eb;">
           <p style="color:#444;">Dear <strong>${companyName}</strong>,</p>
           <p style="color:#444;">Thank you for your enquiry. Please find your quotation attached.</p>
+          ${noteBlock}
           <table style="width:100%;border-collapse:collapse;margin:20px 0;">
             <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;width:140px;">Reference</td><td style="padding:8px 12px;font-size:13px;color:#333;font-weight:bold;">${quote.reference}</td></tr>
             <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Issued</td><td style="padding:8px 12px;font-size:13px;color:#333;">${formatDate(quote.created_at)}</td></tr>

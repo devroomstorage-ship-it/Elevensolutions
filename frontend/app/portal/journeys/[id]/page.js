@@ -119,7 +119,7 @@ export default function JourneyDetailPage() {
               <div><p className="text-xs text-gray-400">Distance</p><p className="text-gray-800">{j.distance_km ? `${j.distance_km} km` : '—'}</p></div>
               <div><p className="text-xs text-gray-400">Est. duration</p><p className="text-gray-800">{j.estimated_duration_min ? `${j.estimated_duration_min} min` : '—'}</p></div>
             </div>
-            {j.directions_link && <a href={j.directions_link} target="_blank" rel="noreferrer" className="block px-5 pb-4 text-xs text-[#E8620A] hover:underline">Open in Google Maps ↗</a>}
+            {j.directions_link && <a href={j.directions_link} target="_blank" rel="noreferrer" className="block px-5 pb-4 text-xs text-[#B060A0] hover:underline">Open in Google Maps ↗</a>}
           </div>
 
           {/* Cost breakdown */}
@@ -173,7 +173,7 @@ export default function JourneyDetailPage() {
                 <Row k="Quotation" v={j.quotation.reference} />
                 <Row k="Status" v={j.quotation.status} />
                 <Row k="Amount" v={fmtKES(j.quotation.amount)} />
-                <a href="/portal/quotes" className="mt-2 inline-block text-xs text-[#E8620A] hover:underline">
+                <a href="/portal/quotes" className="mt-2 inline-block text-xs text-[#B060A0] hover:underline">
                   Open in Quotations →
                 </a>
               </>
@@ -185,7 +185,7 @@ export default function JourneyDetailPage() {
               <p className="text-sm text-gray-400">Calculate a cost in the planner before generating a quotation.</p>
             ) : (
               <button onClick={generateQuotation} disabled={busy === 'quote'}
-                className="w-full text-xs font-medium px-4 py-2 rounded-md border border-[#0F1E2E] text-[#0F1E2E] hover:bg-[#0F1E2E] hover:text-white disabled:opacity-40">
+                className="w-full text-xs font-medium px-4 py-2 rounded-md border border-[#3A2150] text-[#3A2150] hover:bg-[#3A2150] hover:text-white disabled:opacity-40">
                 {busy === 'quote' ? 'Generating…' : 'Generate quotation'}
               </button>
             )}
@@ -205,7 +205,7 @@ export default function JourneyDetailPage() {
                 </div>
                 {j.invoice.qb_sync_status !== 'synced' && (
                   <button onClick={pushInvoice} disabled={busy === 'qb'}
-                    className="mt-3 w-full text-xs font-medium px-4 py-2 rounded-md bg-[#0F1E2E] text-white hover:bg-[#1a2f44] disabled:opacity-40">
+                    className="mt-3 w-full text-xs font-medium px-4 py-2 rounded-md bg-[#3A2150] text-white hover:bg-[#503070] disabled:opacity-40">
                     {busy === 'qb' ? 'Pushing…' : 'Push invoice to QuickBooks'}
                   </button>
                 )}
@@ -225,7 +225,7 @@ export default function JourneyDetailPage() {
                     onChange={(v) => setInvForm({ ...invForm, dueDays: v })} />
                 </div>
                 <button onClick={generateInvoice} disabled={busy === 'invoice'}
-                  className="w-full text-xs font-medium px-4 py-2 rounded-md bg-[#E8620A] hover:bg-[#F7813B] text-white disabled:opacity-40">
+                  className="w-full text-xs font-medium px-4 py-2 rounded-md bg-[#B060A0] hover:bg-[#C176B4] text-white disabled:opacity-40">
                   {busy === 'invoice' ? 'Generating…' : 'Generate invoice'}
                 </button>
               </div>
@@ -266,7 +266,7 @@ function MiniField({ label, value, onChange }) {
     <div>
       <label className="block text-[10px] font-medium text-gray-500 mb-0.5">{label}</label>
       <input type="number" value={value} onChange={(e) => onChange(e.target.value)}
-        className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#E8620A]" />
+        className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#B060A0]" />
     </div>
   );
 }

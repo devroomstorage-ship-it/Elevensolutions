@@ -106,7 +106,7 @@ export default function DriverDetailPage() {
         </div>
         {!editing && (
           <button onClick={startEdit}
-            className="text-xs bg-[#E8620A] hover:bg-[#F7813B] text-white px-4 py-2 rounded-md">
+            className="text-xs bg-[#B060A0] hover:bg-[#C176B4] text-white px-4 py-2 rounded-md">
             Edit driver
           </button>
         )}
@@ -176,7 +176,7 @@ export default function DriverDetailPage() {
                     {journeys.map(j => (
                       <tr key={j.id} className="border-t border-gray-100">
                         <td className="py-2">
-                          <a href={`/portal/journeys/${j.id}`} className="text-[#E8620A] hover:underline">{j.reference}</a>
+                          <a href={`/portal/journeys/${j.id}`} className="text-[#B060A0] hover:underline">{j.reference}</a>
                         </td>
                         <td>{j.origin} → {j.destination}</td>
                         <td>{j.registration || j.truck_registration_snapshot || '—'}</td>
@@ -261,7 +261,7 @@ function EditPanel({ form, setForm, trucks, saveErr, saving, onSave, onCancel })
         <button onClick={onCancel}
           className="text-xs text-gray-500 px-4 py-2">Cancel</button>
         <button onClick={onSave} disabled={saving}
-          className="bg-[#E8620A] hover:bg-[#F7813B] disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-md">
+          className="bg-[#B060A0] hover:bg-[#C176B4] disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-md">
           {saving ? 'Saving…' : 'Save changes'}
         </button>
       </div>
@@ -291,7 +291,7 @@ function Field({ label, value, onChange, type = 'text' }) {
     <div>
       <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
       <input type={type} value={value || ''} onChange={onChange}
-        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#E8620A]/40" />
+        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#B060A0]/40" />
     </div>
   );
 }
@@ -299,7 +299,7 @@ function PhoneField({ label, value, onChange }) {
   return (
     <div>
       <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
-      <div className="flex items-stretch border border-gray-200 rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-[#E8620A]/40">
+      <div className="flex items-stretch border border-gray-200 rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-[#B060A0]/40">
         <span className="bg-gray-50 px-2.5 flex items-center text-xs text-gray-500 font-mono border-r border-gray-200">+254</span>
         <input type="tel" inputMode="numeric" placeholder="717 900 400"
           value={value || ''} onChange={onChange}

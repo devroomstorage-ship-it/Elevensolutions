@@ -54,7 +54,7 @@ export default function ClientDetailPage() {
           </div>
           {canInvite && (
             <button onClick={sendInvite} disabled={inviting}
-              className="text-xs bg-[#E8620A] hover:bg-[#F7813B] disabled:opacity-50 text-white px-3 py-1.5 rounded-md">
+              className="text-xs bg-[#B060A0] hover:bg-[#C176B4] disabled:opacity-50 text-white px-3 py-1.5 rounded-md">
               {inviting ? 'Sending…' : 'Invite to customer portal'}
             </button>
           )}
@@ -120,7 +120,7 @@ export default function ClientDetailPage() {
                   {journeys.map(j => (
                     <tr key={j.id} className="border-t border-gray-100">
                       <td className="py-2">
-                        <a href={`/portal/journeys/${j.id}`} className="text-[#E8620A] hover:underline">{j.reference}</a>
+                        <a href={`/portal/journeys/${j.id}`} className="text-[#B060A0] hover:underline">{j.reference}</a>
                       </td>
                       <td>{j.origin} → {j.destination}</td>
                       <td>{fmtDate(j.scheduled_date)}</td>
@@ -141,7 +141,7 @@ export default function ClientDetailPage() {
                   {invoices.map(inv => (
                     <tr key={inv.id} className="border-t border-gray-100">
                       <td className="py-2">
-                        <a href={`/portal/invoices/${inv.id}`} className="text-[#E8620A] hover:underline">{inv.reference}</a>
+                        <a href={`/portal/invoices/${inv.id}`} className="text-[#B060A0] hover:underline">{inv.reference}</a>
                       </td>
                       <td>{fmtKES(inv.total_amount ?? inv.amount)}</td>
                       <td>{fmtDate(inv.due_date)}</td>

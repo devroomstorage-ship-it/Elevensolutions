@@ -158,7 +158,7 @@ export default function SchedulePage() {
             </div>
 
             <button onClick={createAndCalcRoute} disabled={busy === 'route' || !form.origin || !form.destination || !form.truckId || !form.driverId || !form.scheduledDate}
-              className="text-xs font-medium px-4 py-2 rounded-md border border-[#0F1E2E] text-[#0F1E2E] hover:bg-[#0F1E2E] hover:text-white disabled:opacity-40 transition-colors">
+              className="text-xs font-medium px-4 py-2 rounded-md border border-[#3A2150] text-[#3A2150] hover:bg-[#3A2150] hover:text-white disabled:opacity-40 transition-colors">
               {busy === 'route' ? 'Calculating…' : '📍 Calculate distance (Google)'}
             </button>
 
@@ -167,7 +167,7 @@ export default function SchedulePage() {
                 {route.distance_km} km · {route.estimated_duration_min} min
                 {route.cached && <span className="text-gray-400"> (cached)</span>}
                 {route.directions_link && (
-                  <a href={route.directions_link} target="_blank" rel="noreferrer" className="text-[#E8620A] ml-2 hover:underline">Open in Google Maps ↗</a>
+                  <a href={route.directions_link} target="_blank" rel="noreferrer" className="text-[#B060A0] ml-2 hover:underline">Open in Google Maps ↗</a>
                 )}
               </p>
             )}
@@ -197,7 +197,7 @@ export default function SchedulePage() {
 
             <div className="bg-gray-50 rounded-lg p-3 text-sm">
               <div className="flex justify-between text-gray-500"><span>Live preview</span><span className="font-semibold text-gray-900">{fmtKES(previewCost())}</span></div>
-              {cost && <div className="flex justify-between text-gray-500 mt-1"><span>Server estimate</span><span className="font-semibold text-[#E8620A]">{fmtKES(cost.estimatedCost)}</span></div>}
+              {cost && <div className="flex justify-between text-gray-500 mt-1"><span>Server estimate</span><span className="font-semibold text-[#B060A0]">{fmtKES(cost.estimatedCost)}</span></div>}
             </div>
 
             <button onClick={calcCost} disabled={busy === 'cost' || !form._id}
@@ -205,7 +205,7 @@ export default function SchedulePage() {
               {busy === 'cost' ? 'Calculating…' : 'Calculate price'}
             </button>
             <button onClick={finalize} disabled={busy === 'save'}
-              className="w-full bg-[#E8620A] hover:bg-[#F7813B] disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-md">
+              className="w-full bg-[#B060A0] hover:bg-[#C176B4] disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-md">
               {busy === 'save' ? 'Saving…' : 'Save journey'}
             </button>
           </div>
@@ -222,7 +222,7 @@ export default function SchedulePage() {
               <tbody>
                 {journeys.slice(0, 10).map(j => (
                   <tr key={j.id} className="border-t border-gray-100 hover:bg-gray-50">
-                    <td className="p-3"><a href={`/portal/journeys/${j.id}`} className="text-[#E8620A] hover:underline">{j.reference}</a></td>
+                    <td className="p-3"><a href={`/portal/journeys/${j.id}`} className="text-[#B060A0] hover:underline">{j.reference}</a></td>
                     <td>{j.origin} → {j.destination}</td>
                     <td>{j.driver_name || '—'}</td>
                     <td>{j.registration || '—'}</td>
@@ -244,7 +244,7 @@ function Field({ label, value, onChange, type = 'text' }) {
     <div>
       <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
       <input type={type} value={value ?? ''} onChange={onChange}
-        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#E8620A]/40" />
+        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#B060A0]/40" />
     </div>
   );
 }
@@ -253,7 +253,7 @@ function Select({ label, value, onChange, options }) {
     <div>
       <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
       <select value={value} onChange={onChange}
-        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#E8620A]/40">
+        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#B060A0]/40">
         {options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
       </select>
     </div>

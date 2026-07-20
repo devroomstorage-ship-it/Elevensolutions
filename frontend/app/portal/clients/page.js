@@ -35,7 +35,7 @@ export default function ClientsPage() {
           <input
             value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Search clients…"
-            className="mb-5 w-full max-w-sm text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#E8620A]/40"
+            className="mb-5 w-full max-w-sm text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#B060A0]/40"
           />
 
           {loading ? (
@@ -65,7 +65,7 @@ export default function ClientsPage() {
                       <td className="p-3 text-gray-700">{fmtKES(c.outstanding_balance)}</td>
                       <td className="p-3 text-gray-500">{fmtDate(c.last_activity_at)}</td>
                       <td className="p-3 text-right">
-                        <a href={`/portal/clients/${c.id}`} className="text-[#E8620A] hover:underline text-xs font-medium">View</a>
+                        <a href={`/portal/clients/${c.id}`} className="text-[#B060A0] hover:underline text-xs font-medium">View</a>
                       </td>
                     </tr>
                   ))}

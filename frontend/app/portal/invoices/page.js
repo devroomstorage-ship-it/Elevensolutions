@@ -92,7 +92,7 @@ export default function InvoicesPage() {
             {filters.map(f => (
               <button key={f} onClick={() => setFilter(f)}
                 className={`text-xs px-3 py-1.5 rounded-full capitalize font-medium transition-colors border ${
-                  filter === f ? 'bg-[#0F1E2E] text-white border-[#0F1E2E]' : 'border-gray-200 text-gray-600 hover:border-gray-400'
+                  filter === f ? 'bg-[#3A2150] text-white border-[#3A2150]' : 'border-gray-200 text-gray-600 hover:border-gray-400'
                 }`}>
                 {f}
               </button>
@@ -136,7 +136,7 @@ export default function InvoicesPage() {
                         <div className="flex gap-1.5">
                           {(inv.status === 'draft' || inv.status === 'sent' || inv.status === 'overdue') && (
                             <button onClick={() => sendInvoice(inv.id)} disabled={sending === inv.id}
-                              className="bg-[#0F1E2E] hover:bg-[#162840] disabled:opacity-50 text-white text-[10px] px-2.5 py-1 rounded transition-colors">
+                              className="bg-[#3A2150] hover:bg-[#503070] disabled:opacity-50 text-white text-[10px] px-2.5 py-1 rounded transition-colors">
                               {sending === inv.id ? '…' : '📧 Email'}
                             </button>
                           )}

@@ -36,25 +36,25 @@ function LoginForm() {
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-[#0F1E2E] flex items-center justify-center">
-      <div className="w-6 h-6 border-2 border-[#E8620A] border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-screen bg-[#3A2150] flex items-center justify-center">
+      <div className="w-6 h-6 border-2 border-[#B060A0] border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#f4f6f9] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#FBFAFC] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
 
         <div className="text-center mb-6">
-          <div className="w-12 h-12 bg-[#0F1E2E] rounded-xl flex items-center justify-center mx-auto mb-3">
+          <div className="w-12 h-12 bg-[#3A2150] rounded-xl flex items-center justify-center mx-auto mb-3">
             <svg width="26" height="18" viewBox="0 0 26 18" fill="none">
               <rect x="0" y="4" width="16" height="10" rx="2" fill="white"/>
               <rect x="16" y="8" width="7" height="7" rx="1.5" fill="rgba(255,255,255,0.7)"/>
-              <circle cx="5" cy="16" r="3" fill="#0F1E2E"/><circle cx="5" cy="16" r="1.5" fill="white"/>
-              <circle cx="19" cy="16" r="3" fill="#0F1E2E"/><circle cx="19" cy="16" r="1.5" fill="white"/>
+              <circle cx="5" cy="16" r="3" fill="#3A2150"/><circle cx="5" cy="16" r="1.5" fill="white"/>
+              <circle cx="19" cy="16" r="3" fill="#3A2150"/><circle cx="19" cy="16" r="1.5" fill="white"/>
             </svg>
           </div>
-          <h1 className="text-[#0F1E2E] font-semibold text-base">Eleven Solutions Limited</h1>
+          <h1 className="text-[#3A2150] font-semibold text-base">Eleven Solutions Limited</h1>
           <p className="text-gray-500 text-xs mt-1">Client Portal</p>
         </div>
 
@@ -63,20 +63,20 @@ function LoginForm() {
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
               <input type="email" placeholder="you@yourcompany.com" autoComplete="email"
-                className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#E8620A] ${errors.email ? 'border-red-400' : 'border-gray-200'}`}
+                className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#B060A0] ${errors.email ? 'border-red-400' : 'border-gray-200'}`}
                 {...register('email', { required: true })} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Password</label>
               <input type="password" placeholder="••••••••" autoComplete="current-password"
-                className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#E8620A] ${errors.password ? 'border-red-400' : 'border-gray-200'}`}
+                className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#B060A0] ${errors.password ? 'border-red-400' : 'border-gray-200'}`}
                 {...register('password', { required: true })} />
             </div>
 
             {error && <p className="text-red-600 text-xs bg-red-50 border border-red-200 rounded p-2">{error}</p>}
 
             <button type="submit" disabled={submitting}
-              className="w-full bg-[#0F1E2E] hover:bg-[#162840] disabled:opacity-60 text-white font-medium py-2.5 rounded-lg transition-colors text-sm">
+              className="w-full bg-[#3A2150] hover:bg-[#503070] disabled:opacity-60 text-white font-medium py-2.5 rounded-lg transition-colors text-sm">
               {submitting ? 'Signing in…' : 'Sign In'}
             </button>
           </form>

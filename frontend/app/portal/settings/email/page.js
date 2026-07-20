@@ -179,7 +179,7 @@ export default function EmailSettingsPage() {
 
               <div className="flex justify-end gap-2">
                 <button onClick={save} disabled={!isDirty || saving}
-                  className="bg-[#E8620A] hover:bg-[#F7813B] disabled:opacity-50 text-white text-sm font-medium px-5 py-2 rounded-md">
+                  className="bg-[#B060A0] hover:bg-[#C176B4] disabled:opacity-50 text-white text-sm font-medium px-5 py-2 rounded-md">
                   {saving ? 'Saving…' : 'Save changes'}
                 </button>
               </div>
@@ -205,7 +205,7 @@ export default function EmailSettingsPage() {
                     </select>
                   </div>
                   <button onClick={sendTest} disabled={!testTo || testing || !smtpConfigured}
-                    className="bg-[#0F1E2E] hover:bg-[#1a3556] disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-md">
+                    className="bg-[#3A2150] hover:bg-[#503070] disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-md">
                     {testing ? 'Sending…' : 'Send test'}
                   </button>
                 </div>
@@ -223,7 +223,7 @@ function Field({ label, helper, value, onChange, placeholder, type = 'text', onF
     <div>
       <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>
       <input type={type} value={value || ''} onChange={onChange} onFocus={onFocus} placeholder={placeholder}
-        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#E8620A]/40" />
+        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#B060A0]/40" />
       {helper && <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">{helper}</p>}
     </div>
   );

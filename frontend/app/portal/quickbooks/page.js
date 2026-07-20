@@ -66,7 +66,7 @@ export default function QuickBooksPage() {
                     <div key={a} className="flex items-start gap-2 text-xs">
                       <span className="text-green-500 flex-shrink-0 mt-0.5">✓</span>
                       <span className="text-gray-600">{a}</span>
-                      <span className="text-[#E8620A] font-medium flex-shrink-0">{b}</span>
+                      <span className="text-[#B060A0] font-medium flex-shrink-0">{b}</span>
                     </div>
                   ))}
                 </div>
@@ -74,7 +74,7 @@ export default function QuickBooksPage() {
 
               <div className="flex gap-2">
                 <a href={`${API}/quickbooks/connect`}
-                  className="bg-[#0F1E2E] hover:bg-[#162840] text-white text-xs font-medium px-4 py-2 rounded-md transition-colors">
+                  className="bg-[#3A2150] hover:bg-[#503070] text-white text-xs font-medium px-4 py-2 rounded-md transition-colors">
                   Reconnect / Refresh Token
                 </a>
                 <button onClick={disconnect} disabled={working}
@@ -102,7 +102,7 @@ export default function QuickBooksPage() {
                 <p className="text-xs font-semibold text-gray-700 mb-3">What you will need</p>
                 <ul className="space-y-1.5 text-xs text-gray-500">
                   {['A QuickBooks Online account (any plan)','Admin access to the QuickBooks company','Your QuickBooks login credentials'].map(i=>(
-                    <li key={i} className="flex gap-2"><span className="text-[#E8620A]">•</span>{i}</li>
+                    <li key={i} className="flex gap-2"><span className="text-[#B060A0]">•</span>{i}</li>
                   ))}
                 </ul>
               </div>

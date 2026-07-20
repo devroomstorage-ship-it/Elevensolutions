@@ -82,12 +82,12 @@ body {
 
 /* Scrollbar (admin portal) */
 ::-webkit-scrollbar        { width: 6px; height: 6px; }
-::-webkit-scrollbar-track  { background: #1a2f44; }
-::-webkit-scrollbar-thumb  { background: #3a5068; border-radius: 3px; }
+::-webkit-scrollbar-track  { background: var(--plum-900); }
+::-webkit-scrollbar-thumb  { background: var(--plum-600); border-radius: 3px; }
 
-/* Focus ring: orange in portal, plum on the public site */
+/* Focus ring: orchid everywhere — portal and public share the purple theme */
 input:focus, select:focus, textarea:focus, button:focus {
-  outline: 2px solid var(--orange);
+  outline: 2px solid var(--orchid-500);
   outline-offset: 2px;
 }
 .site input:focus, .site select:focus, .site textarea:focus, .site button:focus {

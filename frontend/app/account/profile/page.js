@@ -78,7 +78,7 @@ export default function AccountProfilePage() {
 
           <div className="flex justify-end pt-2">
             <button onClick={save} disabled={saving}
-              className="bg-[#E8620A] hover:bg-[#F7813B] disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-md">
+              className="bg-[#B060A0] hover:bg-[#C176B4] disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-md">
               {saving ? 'Saving…' : 'Save changes'}
             </button>
           </div>
@@ -93,7 +93,7 @@ function Field({ label, value, onChange }) {
     <div>
       <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
       <input value={value} onChange={onChange}
-        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#E8620A]/40" />
+        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#B060A0]/40" />
     </div>
   );
 }

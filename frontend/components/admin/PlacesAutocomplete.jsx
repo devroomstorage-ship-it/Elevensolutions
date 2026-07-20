@@ -72,7 +72,7 @@ export default function PlacesAutocomplete({ label, value, onChange, onSelect, p
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
         placeholder={placeholder || (key ? 'Start typing an address…' : 'Type an address')}
-        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#E8620A]/40"
+        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#B060A0]/40"
       />
       {!key && (
         <p className="text-[10px] text-gray-400 mt-1">
