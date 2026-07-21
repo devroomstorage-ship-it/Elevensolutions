@@ -1,13 +1,21 @@
 -- migration_015_client_summary_outstanding_fix.sql
 -- client_summary.outstanding_balance previously summed every invoice with
 -- status <> 'paid', which counted draft invoices as money owed. Since
--- migration_014 auto-generates a draft invoice the moment a quote is priced,
--- this made every priced-but-unsent quote inflate the client's shown balance
--- on the Clients list / 360 view before anything was ever billed.
+-- migration_014_stored_quote_suggestion.sql auto-generates a draft invoice
+-- the moment a quote is priced, this made every priced-but-unsent quote
+-- inflate the client's shown balance on the Clients list / 360 view before
+-- anything was ever billed.
 --
 -- invoices.js's own /api/invoices/stats endpoint already treats only
 -- 'sent'/'overdue' as real receivables (draft and cancelled excluded) — this
 -- brings the view in line with that existing, correct definition.
+--
+-- NOTE: migration_014_analytics_and_view_fixes.sql (applied earlier
+-- alphabetically) already fixed this same view to sum total_amount
+-- (post-tax) instead of amount (pre-tax) for paid_total/outstanding. This
+-- migration runs after it, so it must carry that fix forward too — it is
+-- NOT reintroducing the pre-tax amount column, just adding the sent/overdue
+-- restriction on top of it.
 -- Idempotent: safe to re-run.
 
 BEGIN;
@@ -33,8 +41,8 @@ LEFT JOIN LATERAL (
 LEFT JOIN LATERAL (
   SELECT COUNT(*) AS cnt,
          MAX(created_at) AS last_at,
-         SUM(CASE WHEN status = 'paid'             THEN amount ELSE 0 END) AS paid_total,
-         SUM(CASE WHEN status IN ('sent','overdue') THEN amount ELSE 0 END) AS outstanding
+         SUM(CASE WHEN status = 'paid'             THEN total_amount ELSE 0 END) AS paid_total,
+         SUM(CASE WHEN status IN ('sent','overdue') THEN total_amount ELSE 0 END) AS outstanding
     FROM invoices WHERE client_id = c.id
 ) i ON TRUE;
 
