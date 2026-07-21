@@ -30,6 +30,7 @@ const emailSettingsRoutes = require('./routes/emailSettings'); // NEW — sender
 const analyticsRoutes   = require('./routes/analytics');    // NEW — BI refresh + summaries
 const clientAuthRoutes  = require('./routes/clientAuth');   // NEW — client invite accept
 const clientPortalRoutes = require('./routes/clientPortal'); // NEW — client-scoped reads
+const { query } = require('./db');
 
 const app = express();
 
@@ -101,7 +102,34 @@ app.use((err, req, res, next) => {
   });
 });
 
+// ─── Background maintenance (analytics refresh + route cache purge) ──────────
+// Render's free tier has no pg_cron/shell access for a real cron job, and the
+// service sleeps after 15 min idle anyway, so a scheduled job can't be relied
+// on to fire at a fixed time. This is the best approximation available on
+// that tier: refresh once at boot (covers the common case of a cold start
+// after overnight sleep) and again on an interval for as long as the process
+// stays warm. Once on the GoDaddy VPS, replace this with real pg_cron/system
+// cron and remove the interval.
+const MAINTENANCE_INTERVAL_MS = 12 * 60 * 60 * 1000; // 12h
+
+async function runMaintenance() {
+  try {
+    await query('SELECT analytics.refresh_analytics()');
+    console.log('✓ analytics.refresh_analytics() completed');
+  } catch (err) {
+    console.error('analytics refresh failed:', err.message);
+  }
+  try {
+    const { rowCount } = await query('DELETE FROM google_route_cache WHERE expires_at < NOW()');
+    if (rowCount) console.log(`✓ purged ${rowCount} expired google_route_cache rows`);
+  } catch (err) {
+    console.error('route cache purge failed:', err.message);
+  }
+}
+
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Eleven Solutions API running on port ${PORT} [${process.env.NODE_ENV}]`);
+  runMaintenance();
+  setInterval(runMaintenance, MAINTENANCE_INTERVAL_MS);
 });

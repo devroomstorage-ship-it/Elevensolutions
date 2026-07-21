@@ -336,7 +336,12 @@ gets committed.
 - Services sleep after 15 min idle — first request after sleep is slow
 - No Shell access on free tier — add a temporary diagnostic endpoint if you need
   to run one-off commands/queries
-- Free Postgres is **deleted after 90 days** — back up or upgrade before that
+- Free Postgres is **deleted after 90 days** — back up or upgrade before that.
+  `backend/scripts/backup-db.sh` runs `pg_dump` against `DATABASE_URL` (works
+  against Render's external connection string today, not just the future VPS)
+  and gzips + prunes old dumps. Nothing schedules it yet — run it by hand or
+  wire it into a scheduled GitHub Action/Task Scheduler job until the VPS move
+  gives us real cron.
 - Docker image cache can serve stale code — use `--no-cache` (or bump something
   in `package.json`) when rebuilding after a dependency change, or use
   "Clear build cache & deploy" in the Render UI
@@ -398,8 +403,16 @@ optional non-empty, `.optional({ nullable: true })` for genuinely nullable.
   expired client sessions to the staff login page. Now path-aware.
 
 **Still open:**
-- Email on Render free tier — SMTP may be blocked entirely; Brevo HTTPS API is the fallback plan
-- Migration 007 & 008 contents are inferred, not confirmed (written by another developer)
+- Migration 007 & 008 contents are inferred, not confirmed (written by another developer).
+  Migration 008 hardcodes the `admin@elevensolutions.co.ke` super_admin password
+  (`DemoTime2026`) and will silently re-provision it on any fresh database
+  (Render's 90-day Postgres deletion, a VPS migration, a new dev environment).
+  **Confirmed (2026-07-21): this is still the live production password, and the
+  client has explicitly asked NOT to change it.** Do not rotate, reset, or
+  otherwise touch this credential without a fresh, explicit request — a prior
+  session traced a second hardcoded password (`Admin@1234`, via a since-reverted
+  `reset-password.js` call in `render.yaml`, commit `51e54f3`) that turned out
+  not to be the live one; don't assume either value without asking again.
 - No 2FA on staff login (`users.totp_secret` column exists; auth flow not built) —
   explicitly deferred, not yet approved to build
 - No real-time truck tracking / driver GPS (deferred — needs a design conversation
