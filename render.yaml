@@ -8,12 +8,12 @@ databases:
 services:
   - type: web
     name: eleven-solutions-backend
-    runtime: node
+    runtime: docker
     rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerCommand: sh -c "npm run migrate && npm start"
     region: frankfurt
     plan: free
-    buildCommand: npm install
-    startCommand: npm run migrate && npm start
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -66,12 +66,11 @@ services:
 
   - type: web
     name: eleven-solutions-frontend
-    runtime: node
+    runtime: docker
     rootDir: frontend
+    dockerfilePath: ./Dockerfile
     region: frankfurt
     plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm start
     healthCheckPath: /
     autoDeploy: true
     envVars:
