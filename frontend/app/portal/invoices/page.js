@@ -117,7 +117,11 @@ export default function InvoicesPage() {
                     <tr><td colSpan={7} className="text-center py-12 text-gray-400">No invoices found</td></tr>
                   ) : invoices.map(inv => (
                     <tr key={inv.id} className={`hover:bg-gray-50/50 ${inv.status === 'overdue' ? 'bg-red-50/30' : ''}`}>
-                      <td className="px-4 py-3 font-mono text-gray-600">{inv.reference}</td>
+                      <td className="px-4 py-3 font-mono text-gray-600">
+                        <a href={`/portal/invoices/${inv.id}`} className="hover:text-[#B060A0] hover:underline">
+                          {inv.reference}
+                        </a>
+                      </td>
                       <td className="px-4 py-3">
                         <p className="font-medium text-gray-800">{inv.company_name}</p>
                         <p className="text-gray-400 text-[10px]">{inv.client_email}</p>
@@ -134,6 +138,10 @@ export default function InvoicesPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1.5">
+                          <a href={`/portal/invoices/${inv.id}`}
+                            className="border border-gray-200 text-gray-600 text-[10px] px-2.5 py-1 rounded hover:bg-gray-50">
+                            View
+                          </a>
                           {(inv.status === 'draft' || inv.status === 'sent' || inv.status === 'overdue') && (
                             <button onClick={() => sendInvoice(inv.id)} disabled={sending === inv.id}
                               className="bg-[#3A2150] hover:bg-[#503070] disabled:opacity-50 text-white text-[10px] px-2.5 py-1 rounded transition-colors">

@@ -10,18 +10,26 @@ const { getRoute, geocode } = require('../services/maps');
 const router = express.Router();
 router.use(authenticate);
 
-// Common SELECT — adds the assigned-staff name and the journey reference (if any).
+// Common SELECT — adds the assigned-staff name, journey reference (if any),
+// and the auto-generated draft invoice (if the suggestion has created one).
 const QUOTE_SELECT = `
   SELECT q.*,
          c.company_name AS client_company_name,
          c.email        AS client_email,
          c.phone        AS client_phone,
          u.full_name    AS assigned_to_name,
-         j.reference    AS journey_reference
+         j.reference    AS journey_reference,
+         t.registration AS suggested_truck_registration,
+         di.id          AS draft_invoice_id,
+         di.reference   AS draft_invoice_reference,
+         di.status      AS draft_invoice_status,
+         di.total_amount AS draft_invoice_amount
   FROM quotations q
-  LEFT JOIN clients  c ON q.client_id   = c.id
-  LEFT JOIN users    u ON q.assigned_to = u.id
-  LEFT JOIN journeys j ON q.journey_id  = j.id
+  LEFT JOIN clients  c  ON q.client_id   = c.id
+  LEFT JOIN users    u  ON q.assigned_to = u.id
+  LEFT JOIN journeys j  ON q.journey_id  = j.id
+  LEFT JOIN trucks   t  ON q.suggested_truck_id = t.id
+  LEFT JOIN invoices di ON di.quotation_id = q.id
 `;
 
 // GET /api/quotes — workbench list. Supports status= filter and ?q= search.
@@ -211,6 +219,17 @@ router.get('/:id/route-distance', allStaff, async (req, res) => {
 // Distance comes from the request if supplied, otherwise it is geocoded and
 // routed via Google (cache-backed). The result is a SUGGESTION — the staff
 // member edits/saves the final amount separately via PATCH /:id.
+//
+// The result is PERSISTED on the quotation (suggested_price/breakdown/truck),
+// so opening the quote again just reads it back — this endpoint only runs
+// when the workbench asks it to (first time, or an input actually changed),
+// never on every open. It also upserts a companion DRAFT invoice reflecting
+// the same figure, so finance can see the anticipated bill ahead of time.
+// That invoice is only ever touched here while it is still 'draft' — once
+// someone sends or marks it paid through the normal invoice flow, recalculating
+// the quote price no longer changes it. The system never advances its status
+// itself, so it always stays in draft until a human acts on it.
+//
 // allStaff (not financeOrAdmin): the workbench auto-shows the suggestion to
 // anyone who can view quotes; saving the amount / sending stays financeOrAdmin.
 router.post('/:id/calculate-price', allStaff, [
@@ -272,6 +291,49 @@ router.post('/:id/calculate-price', allStaff, [
     manualAdjustment: req.body.manualAdjustment || 0,
   });
 
+  await query(
+    `UPDATE quotations
+        SET suggested_price = $1, suggested_breakdown = $2::jsonb,
+            suggested_truck_id = $3, suggested_at = NOW()
+      WHERE id = $4`,
+    [breakdown.estimatedCost, JSON.stringify(breakdown), req.body.truckId, quote.id]
+  );
+
+  let draftInvoice = null;
+  if (quote.client_id) {
+    draftInvoice = await withTransaction(async (c) => {
+      const { rows: existing } = await c.query(
+        'SELECT * FROM invoices WHERE quotation_id = $1', [quote.id]
+      );
+      const draftNote = `System estimate from quotation ${quote.reference}'s price calculator. Review before sending.`;
+
+      if (existing.length && existing[0].status === 'draft') {
+        const { rows: updated } = await c.query(
+          `UPDATE invoices SET amount = $1, total_amount = $1, notes = $2 WHERE id = $3 RETURNING *`,
+          [breakdown.estimatedCost, draftNote, existing[0].id]
+        );
+        return updated[0];
+      }
+      if (existing.length) return existing[0]; // already sent/paid — leave it alone
+
+      const { rows: refRow } = await c.query(
+        "SELECT 'INV-' || TO_CHAR(NOW(),'YYYY') || '-' || LPAD((COUNT(*)+1)::text, 3, '0') AS ref FROM invoices"
+      );
+      const dueDate = new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0];
+      const { rows: created } = await c.query(
+        `INSERT INTO invoices
+           (reference, client_id, quotation_id, amount, tax_amount, total_amount, due_date, notes, created_by, status)
+         VALUES ($1,$2,$3,$4,0,$4,$5,$6,$7,'draft')
+         RETURNING *`,
+        [refRow[0].ref, quote.client_id, quote.id, breakdown.estimatedCost, dueDate, draftNote, req.user.id]
+      );
+      return created[0];
+    });
+    await auditLog(req.user.id, 'quote.price_suggested', 'quotation', quote.id, {
+      estimatedCost: breakdown.estimatedCost, draftInvoiceRef: draftInvoice?.reference,
+    }, req.ip);
+  }
+
   res.json({
     truck: truck.registration,
     breakdown,
@@ -279,6 +341,7 @@ router.post('/:id/calculate-price', allStaff, [
       dailyRate: req.body.dailyRate != null && req.body.dailyRate !== '',
       extraDayRate: req.body.extraDayRate != null && req.body.extraDayRate !== '',
     },
+    draftInvoice: draftInvoice ? { id: draftInvoice.id, reference: draftInvoice.reference, status: draftInvoice.status } : null,
   });
 });
 

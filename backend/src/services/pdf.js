@@ -21,12 +21,12 @@ const fmtKES = (n) =>
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
 
-// Brand colors
-const PLUM   = '#0F1E2E';
-const ORANGE = '#E8620A';
-const MUTED  = '#666666';
-const SOFT   = '#F4F6F9';
-const WATER  = '#E5E9EF';   // very light grey for watermark
+// Brand colors — plum/orchid, matching the portal and public site theme
+const PLUM   = '#3A2150';
+const ORANGE = '#B060A0';
+const MUTED  = '#6B6175';
+const SOFT   = '#FBFAFC';
+const WATER  = '#EDE3F0';   // very light orchid for watermark
 
 // ─── Diagonal watermark ───────────────────────────────────────────────────────
 // Draws a subtle repeating watermark diagonally across the page.
@@ -58,7 +58,7 @@ function buildHeader(doc, title) {
   doc.rect(50, 50, 500, 70).fill(PLUM);
   doc.fillColor('white').font('Helvetica-Bold').fontSize(18)
     .text(COMPANY.name, 70, 65, { lineBreak: false });
-  doc.font('Helvetica').fontSize(9).fillColor('#8fa3b8')
+  doc.font('Helvetica').fontSize(9).fillColor('#C9A9C4')
     .text(`${COMPANY.tagline} · ${COMPANY.address}`, 70, 88, { width: 460, lineBreak: false })
     .text(`${COMPANY.phones.join(' · ')} · ${COMPANY.emails[0]}`, 70, 102, { width: 460, lineBreak: false });
   doc.fillColor(ORANGE).font('Helvetica-Bold').fontSize(24)

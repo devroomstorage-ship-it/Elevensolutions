@@ -32,6 +32,7 @@ export default function QuotesPage() {
 
   const selectedIdRef = useRef(null);
   const debounceRef = useRef(null);
+  const suppressAutoRef = useRef(false); // true right after hydrating a stored suggestion
 
   const loadQuotes = () => {
     const url = filter !== 'all' ? `/quotes?status=${filter}` : '/quotes';
@@ -48,15 +49,40 @@ export default function QuotesPage() {
       .catch(() => {});
   }, []);
 
+  // Opening a quote never calls the API. If it already has a stored
+  // suggestion (calculated once, previously), we just read it back — the
+  // calculator inputs are rebuilt to match exactly what produced it, and
+  // suppressAutoRef stops the auto-calc effect from re-running on open.
+  // Only a genuinely new quote (never priced) triggers a first calculation.
   const openQuote = (q) => {
     selectedIdRef.current = q.id;
     setSelected(q);
     setAmount(q.amount || '');
     setEmailNote('');
-    setCalcResult(null);
     setCalcErr('');
-    // truckId '' triggers the auto-pick effect below; distance resolves server-side.
-    setCalc({ truckId: '', days: 1, roundTrip: true, distanceKm: '', extraCharges: '', manualAdjustment: '', dailyRate: '', extraDayRate: '' });
+
+    if (q.suggested_price != null && q.suggested_breakdown) {
+      const b = q.suggested_breakdown;
+      const truck = trucks.find(t => t.id === q.suggested_truck_id);
+      suppressAutoRef.current = true;
+      setCalcResult(b);
+      setCalc({
+        truckId: q.suggested_truck_id || '',
+        days: b.days || 1,
+        roundTrip: b.roundTrip !== false,
+        distanceKm: b.distanceKm ?? '',
+        extraCharges: b.extraCharges || '',
+        manualAdjustment: b.manualAdjustment || '',
+        // Only prefill the override box if the stored rate differs from the
+        // truck's current default — otherwise it wasn't a custom rate.
+        dailyRate: truck && Number(truck.daily_rate) === Number(b.dailyRate) ? '' : (b.dailyRate ?? ''),
+        extraDayRate: truck && Number(truck.extra_day_rate) === Number(b.extraDayRate) ? '' : (b.extraDayRate ?? ''),
+      });
+    } else {
+      setCalcResult(null);
+      // truckId '' triggers the auto-pick effect below for a first-ever calc.
+      setCalc({ truckId: '', days: 1, roundTrip: true, distanceKm: '', extraCharges: '', manualAdjustment: '', dailyRate: '', extraDayRate: '' });
+    }
   };
 
   // Pick the smallest truck that can carry the quoted weight (falls back to
@@ -85,6 +111,23 @@ export default function QuotesPage() {
       if (selectedIdRef.current !== quoteId) return; // user moved to another quote
       setCalcResult(r.breakdown);
       setCalc((c) => Number(c.distanceKm) === Number(r.breakdown.distanceKm) ? c : { ...c, distanceKm: r.breakdown.distanceKm });
+      // The backend just persisted this on the quotation (and upserted the
+      // draft invoice) — mirror that into local state so re-opening this
+      // quote later, or the list/hero, reflects it without a reload.
+      const patchQuote = (prev) => prev && prev.id === quoteId ? {
+        ...prev,
+        suggested_price: r.breakdown.estimatedCost,
+        suggested_breakdown: r.breakdown,
+        suggested_truck_id: params.truckId,
+        ...(r.draftInvoice ? {
+          draft_invoice_id: r.draftInvoice.id,
+          draft_invoice_reference: r.draftInvoice.reference,
+          draft_invoice_status: r.draftInvoice.status,
+          draft_invoice_amount: r.breakdown.estimatedCost,
+        } : {}),
+      } : prev;
+      setSelected(patchQuote);
+      setQuotes(prev => prev.map(q => q.id === quoteId ? patchQuote(q) : q));
     } catch (err) {
       if (selectedIdRef.current !== quoteId) return;
       setCalcResult(null);
@@ -94,13 +137,20 @@ export default function QuotesPage() {
     }
   };
 
-  // Seamless suggestion: auto-pick a truck when a quote opens, then
-  // (re)calculate automatically whenever any calculator input changes.
+  // First-time pricing only: auto-pick a truck for a quote that has never
+  // been calculated, then calculate once. After that, this effect only
+  // fires again when the ADMIN actually edits a calculator input — never
+  // just from opening/re-opening a quote (suppressAutoRef blocks that one
+  // cycle right after hydrating a stored suggestion in openQuote above).
   useEffect(() => {
     if (!selected || !trucks.length) return;
     if (!calc.truckId) {
       const id = autoPickTruck(selected);
       if (id) setCalc((c) => ({ ...c, truckId: id }));
+      return;
+    }
+    if (suppressAutoRef.current) {
+      suppressAutoRef.current = false;
       return;
     }
     clearTimeout(debounceRef.current);
@@ -242,10 +292,20 @@ export default function QuotesPage() {
                         {Number(calcResult.extraCharges) > 0 && <Line k="Extra charges" v={formatKES(calcResult.extraCharges)} />}
                         {Number(calcResult.manualAdjustment) !== 0 && <Line k="Adjustment" v={formatKES(calcResult.manualAdjustment)} />}
                       </div>
-                      {selectedTruck && (
+                      {(selectedTruck || selected.suggested_truck_registration) && (
                         <p className="mt-3 text-[11px] text-white/60">
-                          Based on {selectedTruck.registration} — {selectedTruck.type}
+                          Based on {selectedTruck ? `${selectedTruck.registration} — ${selectedTruck.type}` : selected.suggested_truck_registration}
                           {selected.weight_tons ? `, auto-selected for ${Number(selected.weight_tons)} t` : ''} · adjust below
+                        </p>
+                      )}
+                      {selected.draft_invoice_reference && (
+                        <p className="mt-1 text-[11px] text-white/60">
+                          Draft invoice{' '}
+                          <a href={`/portal/invoices/${selected.draft_invoice_id}`}
+                            className="text-white/85 font-semibold underline hover:text-white">
+                            {selected.draft_invoice_reference}
+                          </a>
+                          {' '}({selected.draft_invoice_status}) kept in sync — stays in draft until you send it.
                         </p>
                       )}
                     </>

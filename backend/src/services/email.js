@@ -288,7 +288,7 @@ function escapeHtml(s) {
 async function sendQuoteEmail(to, companyName, quote, pdfBuffer, note = '') {
   const { from, replyTo } = await resolveFrom('quotes');
   const noteBlock = note
-    ? `<div style="background:#FFF7ED;border-left:3px solid #E8620A;padding:12px 16px;margin:16px 0;">
+    ? `<div style="background:#FFF7ED;border-left:3px solid #B060A0;padding:12px 16px;margin:16px 0;">
          <p style="color:#444;margin:0;font-size:14px;">${escapeHtml(note)}</p>
        </div>`
     : '';
@@ -297,9 +297,9 @@ async function sendQuoteEmail(to, companyName, quote, pdfBuffer, note = '') {
     subject: `Quotation ${quote.reference} — ${COMPANY.name}`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
-        <div style="background:#0F1E2E;padding:24px;border-radius:8px 8px 0 0;">
+        <div style="background:#3A2150;padding:24px;border-radius:8px 8px 0 0;">
           <h2 style="color:#fff;margin:0;font-size:20px;">${COMPANY.name}</h2>
-          <p style="color:#8fa3b8;margin:6px 0 0;font-size:13px;">Corporate Freight &amp; Logistics</p>
+          <p style="color:#C9A9C4;margin:6px 0 0;font-size:13px;">Corporate Freight &amp; Logistics</p>
         </div>
         <div style="background:#fff;padding:28px;border:1px solid #e5e7eb;">
           <p style="color:#444;">Dear <strong>${companyName}</strong>,</p>
@@ -311,7 +311,7 @@ async function sendQuoteEmail(to, companyName, quote, pdfBuffer, note = '') {
             <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Valid until</td><td style="padding:8px 12px;font-size:13px;color:#333;">${formatDate(quote.valid_until)}</td></tr>
             <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Route</td><td style="padding:8px 12px;font-size:13px;color:#333;">${quote.origin} → ${quote.destination}</td></tr>
             <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Cargo</td><td style="padding:8px 12px;font-size:13px;color:#333;">${quote.cargo_type || 'General Freight'}</td></tr>
-            <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Amount</td><td style="padding:8px 12px;font-size:14px;color:#E8620A;font-weight:bold;">${formatKES(quote.amount)}</td></tr>
+            <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Amount</td><td style="padding:8px 12px;font-size:14px;color:#B060A0;font-weight:bold;">${formatKES(quote.amount)}</td></tr>
           </table>
           <p style="color:#444;font-size:13px;">To accept this quotation, please reply to this email or ${callOnLine.toLowerCase()}.</p>
         </div>
@@ -348,13 +348,13 @@ async function sendQuoteAcknowledgement(to, companyName, reference) {
     ].join('\n'),
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
-        <div style="background:#0F1E2E;padding:24px;"><h2 style="color:#fff;margin:0;">${COMPANY.name}</h2></div>
+        <div style="background:#3A2150;padding:24px;"><h2 style="color:#fff;margin:0;">${COMPANY.name}</h2></div>
         <div style="background:#fff;padding:28px;border:1px solid #e5e7eb;">
           <p style="color:#444;">Dear <strong>${companyName}</strong>,</p>
           <p style="color:#444;">We have received your quotation request.</p>
-          <p style="font-size:20px;color:#0F1E2E;font-weight:bold;letter-spacing:1px;">${reference}</p>
+          <p style="font-size:20px;color:#3A2150;font-weight:bold;letter-spacing:1px;">${reference}</p>
           <p style="color:#444;">Please keep this reference number. You can use it to track your quote status${trackingUrl ? ` using the tracking page below.` : ` on our website.`}</p>
-          ${trackingUrl ? `<p><a href="${trackingUrl}" style="display:inline-block;background:#E8620A;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;">Track Quote</a></p>` : ''}
+          ${trackingUrl ? `<p><a href="${trackingUrl}" style="display:inline-block;background:#B060A0;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;">Track Quote</a></p>` : ''}
           <p style="color:#444;">You will receive a formal quotation once our team reviews your request.</p>
           <p style="color:#444;">If you need urgent assistance, ${callOnLine.toLowerCase()}.</p>
         </div>
@@ -374,11 +374,11 @@ async function sendQuoteOtpEmail(to, companyName, reference, otp) {
     text: `Dear ${companyName || 'Customer'},\n\nYour Eleven Solutions verification code is ${otp}. This code expires in 10 minutes.\n\nReference: ${reference}`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
-        <div style="background:#0F1E2E;padding:24px;"><h2 style="color:#fff;margin:0;">${COMPANY.name}</h2></div>
+        <div style="background:#3A2150;padding:24px;"><h2 style="color:#fff;margin:0;">${COMPANY.name}</h2></div>
         <div style="background:#fff;padding:28px;border:1px solid #e5e7eb;">
           <p style="color:#444;">Dear <strong>${companyName || 'Customer'}</strong>,</p>
           <p style="color:#444;">Use this verification code to view your quote status:</p>
-          <p style="font-size:28px;color:#E8620A;font-weight:bold;letter-spacing:4px;">${otp}</p>
+          <p style="font-size:28px;color:#B060A0;font-weight:bold;letter-spacing:4px;">${otp}</p>
           <p style="color:#444;">This code expires in <strong>10 minutes</strong>.</p>
           <p style="color:#666;font-size:13px;">Quote reference: <strong>${reference}</strong></p>
         </div>
@@ -399,13 +399,13 @@ async function sendQuoteReadyEmail(to, companyName, quote) {
     text: `Dear ${companyName},\n\nYour quotation is ready. Reference: ${quote.reference}. ${trackingUrl ? `Track it here: ${trackingUrl}` : 'You can track it on our website.'}`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
-        <div style="background:#0F1E2E;padding:24px;"><h2 style="color:#fff;margin:0;">${COMPANY.name}</h2></div>
+        <div style="background:#3A2150;padding:24px;"><h2 style="color:#fff;margin:0;">${COMPANY.name}</h2></div>
         <div style="background:#fff;padding:28px;border:1px solid #e5e7eb;">
           <p style="color:#444;">Dear <strong>${companyName}</strong>,</p>
           <p style="color:#444;">Your quotation is ready.</p>
           <p style="color:#444;">Reference: <strong>${quote.reference}</strong></p>
           ${quote.quote_amount || quote.amount ? `<p style="color:#444;">Amount: <strong>${formatKES(quote.quote_amount || quote.amount)}</strong></p>` : ''}
-          ${trackingUrl ? `<p><a href="${trackingUrl}" style="display:inline-block;background:#E8620A;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;">View Quote</a></p>` : ''}
+          ${trackingUrl ? `<p><a href="${trackingUrl}" style="display:inline-block;background:#B060A0;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;">View Quote</a></p>` : ''}
         </div>
         <div style="background:#f4f6f9;padding:16px;text-align:center;"><p style="color:#888;font-size:11px;margin:0;">${footerLine}</p></div>
       </div>`,
@@ -423,14 +423,14 @@ async function sendInvoiceCreatedEmail(to, companyName, invoice, quote = {}) {
     text: `Dear ${companyName},\n\nYour invoice is ready. Invoice No: ${invoiceNo}. Quote Reference: ${quote.reference || '—'}. ${trackingUrl ? `View it here: ${trackingUrl}` : 'You can view it on our website.'}`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
-        <div style="background:#0F1E2E;padding:24px;"><h2 style="color:#fff;margin:0;">${COMPANY.name}</h2></div>
+        <div style="background:#3A2150;padding:24px;"><h2 style="color:#fff;margin:0;">${COMPANY.name}</h2></div>
         <div style="background:#fff;padding:28px;border:1px solid #e5e7eb;">
           <p style="color:#444;">Dear <strong>${companyName}</strong>,</p>
           <p style="color:#444;">Your invoice has been created.</p>
           <p style="color:#444;">Invoice No: <strong>${invoiceNo}</strong></p>
           ${quote.reference ? `<p style="color:#444;">Quote Reference: <strong>${quote.reference}</strong></p>` : ''}
           ${(invoice.total_amount ?? invoice.amount) ? `<p style="color:#444;">Amount: <strong>${formatKES(invoice.total_amount ?? invoice.amount)}</strong></p>` : ''}
-          ${trackingUrl ? `<p><a href="${trackingUrl}" style="display:inline-block;background:#E8620A;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;">View Invoice</a></p>` : ''}
+          ${trackingUrl ? `<p><a href="${trackingUrl}" style="display:inline-block;background:#B060A0;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;">View Invoice</a></p>` : ''}
         </div>
         <div style="background:#f4f6f9;padding:16px;text-align:center;"><p style="color:#888;font-size:11px;margin:0;">${footerLine}</p></div>
       </div>`,
@@ -478,9 +478,9 @@ async function sendQuoteAdminNotification(quote) {
     ].join('\n'),
     html: `
       <div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;">
-        <div style="background:#0F1E2E;padding:24px;border-radius:8px 8px 0 0;">
+        <div style="background:#3A2150;padding:24px;border-radius:8px 8px 0 0;">
           <h2 style="color:#fff;margin:0;font-size:20px;">New quote request received</h2>
-          <p style="color:#8fa3b8;margin:6px 0 0;font-size:13px;">${COMPANY.name}</p>
+          <p style="color:#C9A9C4;margin:6px 0 0;font-size:13px;">${COMPANY.name}</p>
         </div>
         <div style="background:#fff;padding:28px;border:1px solid #e5e7eb;">
           <p style="color:#444;margin-top:0;">A customer has successfully submitted a quote request from the website.</p>
@@ -512,9 +512,9 @@ async function sendInvoiceEmail(to, companyName, invoice, pdfBuffer) {
     subject: `Invoice ${invoice.reference} — ${COMPANY.name}`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
-        <div style="background:#0F1E2E;padding:24px;border-radius:8px 8px 0 0;">
+        <div style="background:#3A2150;padding:24px;border-radius:8px 8px 0 0;">
           <h2 style="color:#fff;margin:0;">${COMPANY.name}</h2>
-          <p style="color:#8fa3b8;margin:6px 0 0;font-size:13px;">Invoice</p>
+          <p style="color:#C9A9C4;margin:6px 0 0;font-size:13px;">Invoice</p>
         </div>
         <div style="background:#fff;padding:28px;border:1px solid #e5e7eb;">
           <p style="color:#444;">Dear <strong>${companyName}</strong>,</p>
@@ -523,7 +523,7 @@ async function sendInvoiceEmail(to, companyName, invoice, pdfBuffer) {
             <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;width:140px;">Invoice No.</td><td style="padding:8px 12px;font-size:13px;font-weight:bold;color:#333;">${invoice.reference}</td></tr>
             <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Issued</td><td style="padding:8px 12px;font-size:13px;color:#333;">${formatDate(invoice.created_at)}</td></tr>
             ${invoice.due_date ? `<tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Due</td><td style="padding:8px 12px;font-size:13px;color:#333;">${formatDate(invoice.due_date)}</td></tr>` : ''}
-            <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Amount</td><td style="padding:8px 12px;font-size:14px;color:#E8620A;font-weight:bold;">${formatKES(invoice.total_amount ?? invoice.amount)}</td></tr>
+            <tr><td style="padding:8px 12px;background:#f4f6f9;font-size:13px;color:#666;">Amount</td><td style="padding:8px 12px;font-size:14px;color:#B060A0;font-weight:bold;">${formatKES(invoice.total_amount ?? invoice.amount)}</td></tr>
           </table>
           <p style="color:#444;font-size:13px;">For any questions about this invoice, ${callOnLine.toLowerCase()}.</p>
         </div>
@@ -551,11 +551,11 @@ async function sendClientInviteEmail(to, companyName, setPasswordUrl) {
     ].join('\n'),
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
-        <div style="background:#0F1E2E;padding:24px;"><h2 style="color:#fff;margin:0;">${COMPANY.name}</h2></div>
+        <div style="background:#3A2150;padding:24px;"><h2 style="color:#fff;margin:0;">${COMPANY.name}</h2></div>
         <div style="background:#fff;padding:28px;border:1px solid #e5e7eb;">
           <p style="color:#444;">Dear <strong>${companyName}</strong>,</p>
           <p style="color:#444;">We've set up online access to your quotes, invoices and journeys with ${COMPANY.name}.</p>
-          <p><a href="${setPasswordUrl}" style="display:inline-block;background:#E8620A;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;">Set your password</a></p>
+          <p><a href="${setPasswordUrl}" style="display:inline-block;background:#B060A0;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;">Set your password</a></p>
           <p style="color:#666;font-size:13px;">This link expires in 72 hours. If you didn't expect this invite, ${callOnLine.toLowerCase()}.</p>
         </div>
         <div style="background:#f4f6f9;padding:16px;text-align:center;"><p style="color:#888;font-size:11px;margin:0;">${footerLine}</p></div>
