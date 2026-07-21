@@ -11,7 +11,6 @@ services:
     runtime: docker
     rootDir: backend
     dockerfilePath: ./Dockerfile
-    dockerCommand: sh -c "npm run migrate && npm start"
     region: frankfurt
     plan: free
     healthCheckPath: /health
