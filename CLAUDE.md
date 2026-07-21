@@ -227,16 +227,34 @@ Some older routes still return `{ errors: [...] }` — inconsistency, not yet cl
 
 ## Email
 
-Nodemailer (not SendGrid). SMTP config lives in `site_settings` so admins can change
-host/user/password from the portal without a redeploy (defaults: host
-`smtp.gmail.com`, port `465`, try `587` if `465` is blocked).
+`backend/src/services/email.js` supports **three transports**, chosen by
+`getEmailSettings()` at send time — not just Nodemailer/SMTP as originally scoped:
+
+1. **SMTP/Nodemailer** — local/dev testing (e.g. a Gmail App Password on your
+   laptop). Config lives in `site_settings` so admins can change host/user/password
+   from the portal without a redeploy (defaults: host `smtp.gmail.com`, port `465`,
+   try `587` if `465` is blocked).
+2. **Mailtrap Email API** (`https://send.api.mailtrap.io/api/send`) — **this is
+   the current production transport on Render**, added after SMTP proved unreliable
+   there. Needs `MAILTRAP_API_KEY` (or `MAILTRAP_API_TOKEN`) in Render env vars.
+3. **Google Apps Script webhook** — an HTTPS relay option for Render Free + Gmail,
+   needs `GOOGLE_SCRIPT_EMAIL_WEBHOOK_URL` + `GOOGLE_SCRIPT_EMAIL_SECRET`.
+
+Transport is picked by `EMAIL_TRANSPORT` env var if set, otherwise defaults to
+`mailtrap` when a Mailtrap key is present, else falls back to `smtp`. All three
+share the same `site_settings`-driven from-address/reply-to resolution
+(`resolveFrom(purpose)` — per-purpose overrides for quotes/invoices/ack).
+
+⚠️ **Superseded:** the "Brevo HTTPS API as fallback" plan mentioned in earlier
+versions of this doc never shipped — Mailtrap was used instead and is live in
+production. Don't plan new email work around Brevo.
 
 **Render gotcha:** Render's free tier has had issues with outbound SMTP to Gmail
-(suspected IPv6/port blocking). `backend/src/index.js` already applies the
-strong fix — `dns.setDefaultResultOrder('ipv4first')` plus a patched `dns.lookup`
-forcing `family: 4` — at the very top of the file, before other requires. If SMTP
-is still blocked entirely on the free tier, fallback plan is Brevo's HTTPS API
-(300 emails/day free) instead of SMTP, which would mean rewriting `services/email.js`.
+(suspected IPv6/port blocking) — this is *why* Mailtrap became the production
+default. `backend/src/index.js` still applies the IPv4 DNS fix
+(`dns.setDefaultResultOrder('ipv4first')` plus a patched `dns.lookup` forcing
+`family: 4`) at the very top of the file for the SMTP path, which is now mainly
+used for local dev.
 
 ## PDFs
 
@@ -299,9 +317,18 @@ can't generate quotes.
 off Render: needs a self-managed VPS (shared hosting can't run Docker), Postgres
 stays as the compose container on VPS disk (data is tiny; nightly pg_dump +
 off-server copy becomes our job), secrets go in a server-side `.env` (never
-committed), and migration_013's PII should be gutted from the file (not history)
-once applied everywhere. 2FA recommendation: finish the already-scaffolded TOTP
-flow — no third-party service needed.
+committed). 2FA recommendation: finish the already-scaffolded TOTP flow — no
+third-party service needed.
+
+⚠️ **`migration_013_real_fleet_import.sql` has real driver PII (names, national
+ID numbers, phone numbers) hardcoded inline, already pushed to `origin` on
+GitHub.** Decision (2026-07-21): leave git history as-is — no `filter-repo`/BFG
+rewrite, since that would force-push and rewrite every commit hash. Going
+forward: **never hardcode real names/IDs/phone numbers directly in a migration
+file again** — any future roster/PII import should read from a non-committed
+source (`.env`-referenced CSV, a one-off admin-only endpoint, or a seed script
+that pulls from an untracked file) so the data never lands in a SQL file that
+gets committed.
 
 ## Render gotchas
 
