@@ -37,11 +37,11 @@ services:
       - key: TOTP_ISSUER
         value: ElevenSolutions
       - key: CORS_ORIGINS
-        value: https://eleven-solutions-frontend.onrender.com
+        value: https://eleven-solutions-frontend-8h46.onrender.com
       - key: PUBLIC_SITE_URL
-        value: https://eleven-solutions-frontend.onrender.com
+        value: https://eleven-solutions-frontend-8h46.onrender.com
       - key: PORTAL_URL
-        value: https://eleven-solutions-frontend.onrender.com/portal
+        value: https://eleven-solutions-frontend-8h46.onrender.com/portal
       - key: EMAIL_TRANSPORT
         value: mailtrap
       - key: MAILTRAP_API_KEY
@@ -59,7 +59,7 @@ services:
       - key: QB_CLIENT_SECRET
         sync: false
       - key: QB_REDIRECT_URI
-        value: https://eleven-solutions-backend.onrender.com/api/quickbooks/callback
+        value: https://eleven-solutions-backend-k0jw.onrender.com/api/quickbooks/callback
       - key: QB_SANDBOX
         value: "true"
 
@@ -76,9 +76,9 @@ services:
       - key: NODE_VERSION
         value: "20"
       - key: NEXT_PUBLIC_API_URL
-        value: https://eleven-solutions-backend.onrender.com/api
+        value: https://eleven-solutions-backend-k0jw.onrender.com/api
       - key: NEXT_PUBLIC_SITE_URL
-        value: https://eleven-solutions-frontend.onrender.com
+        value: https://eleven-solutions-frontend-8h46.onrender.com
       - key: NEXT_PUBLIC_COMPANY_NAME
         value: Eleven Solutions Limited
       - key: NEXT_PUBLIC_COMPANY_PHONE
